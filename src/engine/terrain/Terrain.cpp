@@ -1625,6 +1625,9 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     if (!painted.changed || TerrainLayerWeightAtUv(data, 1, {0.5f, 0.5f}) <= 0.1f) {
         return fail("Terrain selftest failed: paint brush did not affect selected layer.");
     }
+    if (!painted.materialOnly || painted.dirty.chunks.empty() || data.dirtyMaterialChunks.empty()) {
+        return fail("Terrain selftest failed: heightfield material paint did not produce material-only dirty chunks.");
+    }
     const int centerSample = SampleIndex(data, data.resolution / 2, data.resolution / 2);
     float weightSum = 0.0f;
     for (int layer = 0; layer < TerrainLayerCount(data); ++layer) {
@@ -1632,6 +1635,35 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     }
     if (std::fabs(weightSum - 1.0f) > 0.001f) {
         return fail("Terrain selftest failed: layer weights were not normalized.");
+    }
+
+    TerrainData isolatedHeightfieldPaint;
+    isolatedHeightfieldPaint.resolution = 17;
+    isolatedHeightfieldPaint.size = {16.0f, 4.0f, 16.0f};
+    isolatedHeightfieldPaint.chunkSize = 4;
+    isolatedHeightfieldPaint.layers = DefaultTerrainLayers();
+    NormalizeTerrainData(&isolatedHeightfieldPaint);
+    const std::vector<float> heightfieldPaintHeightsBefore = isolatedHeightfieldPaint.heights;
+    const int heightfieldEditRevisionBefore = isolatedHeightfieldPaint.editRevision;
+    const int heightfieldMaterialRevisionBefore = isolatedHeightfieldPaint.materialRevision;
+    TerrainBrushSettings isolatedPaint;
+    isolatedPaint.mode = TerrainBrushMode::Paint;
+    isolatedPaint.radius = 1.7f;
+    isolatedPaint.strength = 0.9f;
+    isolatedPaint.activeLayerIndex = 1;
+    const TerrainBrushResult isolatedPaintResult =
+        ApplyTerrainBrush(&isolatedHeightfieldPaint, {0.5f, 0.5f}, isolatedPaint);
+    if (!isolatedPaintResult.changed || !isolatedPaintResult.materialOnly ||
+        isolatedHeightfieldPaint.heights != heightfieldPaintHeightsBefore ||
+        isolatedHeightfieldPaint.editRevision != heightfieldEditRevisionBefore ||
+        isolatedHeightfieldPaint.materialRevision != heightfieldMaterialRevisionBefore + 1 ||
+        !isolatedHeightfieldPaint.dirtyChunks.empty() || isolatedHeightfieldPaint.dirtyMaterialChunks.empty()) {
+        return fail("Terrain selftest failed: heightfield material paint dirtied geometry or changed heights.");
+    }
+    TerrainMesh isolatedPaintMesh = BuildTerrainMesh(isolatedHeightfieldPaint);
+    if (!RefreshTerrainMeshChunkMaterials(isolatedHeightfieldPaint, isolatedHeightfieldPaint.dirtyMaterialChunks,
+                                          &isolatedPaintMesh)) {
+        return fail("Terrain selftest failed: heightfield material refresh could not update affected mesh chunks.");
     }
 
     auto meshIndexCount = [](const TerrainMesh& mesh) {
@@ -1763,6 +1795,36 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
                                          TerrainVolumeLocalToWorld(volumeTerrain, volumeTerrainEntity,
                                                                    {0.0f, 2.0f, 0.0f}))) {
         return fail("Terrain selftest failed: generated terrain volume was not air above the surface.");
+    }
+
+    TerrainData isolatedVolumePaint = volumeTerrain;
+    isolatedVolumePaint.volume.dirtyChunks.clear();
+    isolatedVolumePaint.volume.dirtyMaterialChunks.clear();
+    const std::vector<float> volumeDensityBefore = isolatedVolumePaint.volume.densities;
+    const std::vector<float> heightfieldWeightsBefore = isolatedVolumePaint.weights;
+    const int volumeEditRevisionBefore = isolatedVolumePaint.volume.editRevision;
+    const int volumeMaterialRevisionBefore = isolatedVolumePaint.volume.materialRevision;
+    CaveBrushSettings volumePaintOnly;
+    volumePaintOnly.mode = CaveBrushMode::Paint;
+    volumePaintOnly.radius = 2.4f;
+    volumePaintOnly.strength = 0.9f;
+    volumePaintOnly.opacity = 0.95f;
+    volumePaintOnly.activeLayerIndex = 1;
+    const CaveBrushResult volumePaintOnlyResult =
+        ApplyTerrainVolumeBrush(&isolatedVolumePaint, {0.0f, -0.8f, 0.0f}, volumePaintOnly);
+    if (!volumePaintOnlyResult.changed || !volumePaintOnlyResult.materialOnly ||
+        isolatedVolumePaint.volume.densities != volumeDensityBefore ||
+        isolatedVolumePaint.weights != heightfieldWeightsBefore ||
+        isolatedVolumePaint.volume.editRevision != volumeEditRevisionBefore ||
+        isolatedVolumePaint.volume.materialRevision != volumeMaterialRevisionBefore + 1 ||
+        !isolatedVolumePaint.volume.dirtyChunks.empty() ||
+        isolatedVolumePaint.volume.dirtyMaterialChunks.empty()) {
+        return fail("Terrain selftest failed: volumetric material paint changed density, heightfield weights, or geometry dirty state.");
+    }
+    CaveMesh isolatedVolumePaintMesh = BuildCaveMesh(isolatedVolumePaint.volume);
+    if (!RefreshCaveMeshChunkMaterials(isolatedVolumePaint.volume, isolatedVolumePaint.volume.dirtyMaterialChunks,
+                                       &isolatedVolumePaintMesh)) {
+        return fail("Terrain selftest failed: volumetric material refresh could not update affected mesh chunks.");
     }
 
     CaveBrushSettings tunnel;

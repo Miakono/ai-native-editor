@@ -153,6 +153,12 @@ Invoke-Smoke "fog rendering" @(
     "--smoke-test-frames=90"
 )
 
+Invoke-Smoke "environment lighting skybox" @(
+    "--smoke-test",
+    "--smoke-test-environment-lighting",
+    "--smoke-test-frames=90"
+)
+
 Invoke-Smoke "sprite 2d workflow" @(
     "--smoke-test",
     "--smoke-test-sprites",
