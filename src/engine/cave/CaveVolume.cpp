@@ -1110,6 +1110,24 @@ bool RebuildCaveMeshChunks(const CaveVolumeData& data, const std::vector<int>& c
     return true;
 }
 
+bool RefreshCaveMeshChunkMaterials(const CaveVolumeData& data, const std::vector<int>& chunkIndices, CaveMesh* mesh) {
+    if (mesh == nullptr || mesh->resolution != data.resolution || mesh->chunkSize != data.chunkSize ||
+        mesh->chunkCountX != CaveChunkCountX(data) || mesh->chunkCountY != CaveChunkCountY(data) ||
+        mesh->chunkCountZ != CaveChunkCountZ(data)) {
+        return false;
+    }
+    for (int chunkIndex : chunkIndices) {
+        if (chunkIndex < 0 || chunkIndex >= static_cast<int>(mesh->chunks.size())) {
+            continue;
+        }
+        CaveMeshChunk& chunk = mesh->chunks[static_cast<size_t>(chunkIndex)];
+        for (CaveMeshVertex& vertex : chunk.vertices) {
+            vertex.color = BlendedLayerColor(data, vertex.position);
+        }
+    }
+    return true;
+}
+
 TerrainVolumeMesh TerrainSurfaceExtractor::Extract(const TerrainVolumeData& data) {
     return BuildCaveMesh(data);
 }

@@ -120,12 +120,15 @@ struct TerrainPerfFrameStats {
     int fullTerrainRebuilds = 0;
     int collisionChunksRebuilt = 0;
     int meshUploadCount = 0;
+    int materialChunksUpdatedThisFrame = 0;
+    int materialUploadCount = 0;
     int volumeRenderChunkSubmitCount = 0;
     int legacyHeightfieldSubmitCount = 0;
     double terrainComponentParseMs = 0.0;
     double terrainVolumeMesherBuildAllMs = 0.0;
     double terrainVolumeMesherBuildChunkMs = 0.0;
     double terrainMeshUploadMs = 0.0;
+    double terrainMaterialUpdateMs = 0.0;
     double terrainCollisionRebuildMs = 0.0;
     double terrainDebugDrawMs = 0.0;
     double terrainBrushPreviewMs = 0.0;
@@ -153,12 +156,15 @@ struct TerrainPerfAggregate {
         totals.fullTerrainRebuilds += frame.fullTerrainRebuilds;
         totals.collisionChunksRebuilt += frame.collisionChunksRebuilt;
         totals.meshUploadCount += frame.meshUploadCount;
+        totals.materialChunksUpdatedThisFrame += frame.materialChunksUpdatedThisFrame;
+        totals.materialUploadCount += frame.materialUploadCount;
         totals.volumeRenderChunkSubmitCount += frame.volumeRenderChunkSubmitCount;
         totals.legacyHeightfieldSubmitCount += frame.legacyHeightfieldSubmitCount;
         totals.terrainComponentParseMs += frame.terrainComponentParseMs;
         totals.terrainVolumeMesherBuildAllMs += frame.terrainVolumeMesherBuildAllMs;
         totals.terrainVolumeMesherBuildChunkMs += frame.terrainVolumeMesherBuildChunkMs;
         totals.terrainMeshUploadMs += frame.terrainMeshUploadMs;
+        totals.terrainMaterialUpdateMs += frame.terrainMaterialUpdateMs;
         totals.terrainCollisionRebuildMs += frame.terrainCollisionRebuildMs;
         totals.terrainDebugDrawMs += frame.terrainDebugDrawMs;
         totals.terrainBrushPreviewMs += frame.terrainBrushPreviewMs;
@@ -170,6 +176,9 @@ struct TerrainPerfAggregate {
         maxFrame.fullTerrainRebuilds = std::max(maxFrame.fullTerrainRebuilds, frame.fullTerrainRebuilds);
         maxFrame.collisionChunksRebuilt = std::max(maxFrame.collisionChunksRebuilt, frame.collisionChunksRebuilt);
         maxFrame.meshUploadCount = std::max(maxFrame.meshUploadCount, frame.meshUploadCount);
+        maxFrame.materialChunksUpdatedThisFrame =
+            std::max(maxFrame.materialChunksUpdatedThisFrame, frame.materialChunksUpdatedThisFrame);
+        maxFrame.materialUploadCount = std::max(maxFrame.materialUploadCount, frame.materialUploadCount);
         maxFrame.legacyHeightfieldSubmitCount =
             std::max(maxFrame.legacyHeightfieldSubmitCount, frame.legacyHeightfieldSubmitCount);
         maxFrame.terrainComponentParseMs = std::max(maxFrame.terrainComponentParseMs, frame.terrainComponentParseMs);
@@ -177,6 +186,7 @@ struct TerrainPerfAggregate {
             std::max(maxFrame.terrainVolumeMesherBuildAllMs, frame.terrainVolumeMesherBuildAllMs);
         maxFrame.terrainVolumeMesherBuildChunkMs =
             std::max(maxFrame.terrainVolumeMesherBuildChunkMs, frame.terrainVolumeMesherBuildChunkMs);
+        maxFrame.terrainMaterialUpdateMs = std::max(maxFrame.terrainMaterialUpdateMs, frame.terrainMaterialUpdateMs);
         maxFrame.terrainRenderSubmitMs = std::max(maxFrame.terrainRenderSubmitMs, frame.terrainRenderSubmitMs);
     }
 };
@@ -273,6 +283,10 @@ void RecordTerrainPerfCounters(PerformanceProfiler* profiler) {
                             static_cast<double>(gTerrainPerfFrame.collisionChunksRebuilt));
     profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.MeshUploadCount",
                             static_cast<double>(gTerrainPerfFrame.meshUploadCount));
+    profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.MaterialChunksUpdatedThisFrame",
+                            static_cast<double>(gTerrainPerfFrame.materialChunksUpdatedThisFrame));
+    profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.MaterialUploadCount",
+                            static_cast<double>(gTerrainPerfFrame.materialUploadCount));
     profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.LegacyHeightfieldSubmitCount",
                             static_cast<double>(gTerrainPerfFrame.legacyHeightfieldSubmitCount));
     profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.VolumeRenderChunkSubmitCount",
@@ -285,6 +299,8 @@ void RecordTerrainPerfCounters(PerformanceProfiler* profiler) {
                             gTerrainPerfFrame.terrainVolumeMesherBuildAllMs);
     profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.VolumeMesherBuildChunkMs",
                             gTerrainPerfFrame.terrainVolumeMesherBuildChunkMs);
+    profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.MaterialUpdateMs",
+                            gTerrainPerfFrame.terrainMaterialUpdateMs);
     profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.CollisionRebuildMs",
                             gTerrainPerfFrame.terrainCollisionRebuildMs);
     profiler->RecordCounter(PerformanceDomain::Editor, "Terrain.DebugDrawMs", gTerrainPerfFrame.terrainDebugDrawMs);
@@ -316,15 +332,20 @@ void MaybePrintTerrainPerfSummary() {
                  "    chunks meshed this frame: %d\n"
                  "    collision chunks rebuilt this frame: %d\n"
                  "    mesh upload count: %d\n"
+                 "    material chunks updated this frame: %d\n"
+                 "    material upload count: %d\n"
                  "    terrain update ms: %.3f\n"
+                 "    material update ms: %.3f\n"
                  "    terrain render submit ms: %.3f\n"
                  "    collision rebuild ms: %.3f\n"
                  "    debug draw ms: %.3f\n",
                  gTerrainPerfFrame.visibleChunks, gTerrainPerfFrame.totalChunks,
                  gTerrainPerfFrame.pendingDirtyChunks, gTerrainPerfFrame.chunksMeshedThisFrame,
                  gTerrainPerfFrame.collisionChunksRebuilt, gTerrainPerfFrame.meshUploadCount,
+                 gTerrainPerfFrame.materialChunksUpdatedThisFrame, gTerrainPerfFrame.materialUploadCount,
                  gTerrainPerfFrame.terrainComponentParseMs + gTerrainPerfFrame.terrainVolumeMesherBuildAllMs +
                      gTerrainPerfFrame.terrainVolumeMesherBuildChunkMs,
+                 gTerrainPerfFrame.terrainMaterialUpdateMs,
                  gTerrainPerfFrame.terrainRenderSubmitMs, gTerrainPerfFrame.terrainCollisionRebuildMs,
                  gTerrainPerfFrame.terrainDebugDrawMs);
 }
@@ -1306,6 +1327,148 @@ struct FogRenderSettings {
     float skyBlend = 0.62f;
 };
 
+enum class SkyboxRenderMode {
+    None,
+    Solid,
+    Gradient,
+};
+
+struct EnvironmentLightingSettings {
+    bool enabled = false;
+    SkyboxRenderMode skyboxMode = SkyboxRenderMode::Gradient;
+    ImVec4 topColor{0.18f, 0.36f, 0.64f, 1.0f};
+    ImVec4 horizonColor{0.58f, 0.68f, 0.78f, 1.0f};
+    ImVec4 groundColor{0.22f, 0.24f, 0.23f, 1.0f};
+    float exposure = 1.0f;
+    float horizonHeight = 0.52f;
+    ImVec4 ambientColor{0.62f, 0.67f, 0.72f, 1.0f};
+    float ambientIntensity = 0.45f;
+    std::string sunEntityName = "Directional Light";
+    Vec3 sunDirection{0.35f, -0.72f, 0.60f};
+    ImVec4 sunColor{1.0f, 0.95f, 0.82f, 1.0f};
+    float sunIntensity = 1.0f;
+    bool showSunDisk = true;
+    float sunDiskSize = 0.035f;
+    float sunDiskIntensity = 0.9f;
+};
+
+ImVec4 ApplyExposure(ImVec4 color, float exposure) {
+    exposure = std::clamp(exposure, 0.001f, 8.0f);
+    color.x = Clamp01(color.x * exposure);
+    color.y = Clamp01(color.y * exposure);
+    color.z = Clamp01(color.z * exposure);
+    return color;
+}
+
+Vec3 DirectionalLightDirectionFromEntity(const Entity& entity) {
+    Vec3 direction{0.0f, -1.0f, 0.0f};
+    direction = RotateX(direction, entity.rotation[0]);
+    direction = RotateY(direction, entity.rotation[1]);
+    direction = RotateZ(direction, entity.rotation[2]);
+    return Normalize(direction, {0.35f, -0.72f, 0.60f});
+}
+
+const Component* FindDirectionalLightComponent(const EditorState& state,
+                                               const std::string& requestedName,
+                                               const Entity** outEntity) {
+    if (outEntity != nullptr) {
+        *outEntity = nullptr;
+    }
+
+    auto isDirectional = [](const Component& component) {
+        return component.type == "Light" && ComponentEnabled(component) &&
+               ToLower(ComponentPropertyValue(component, "type")) == "directional";
+    };
+
+    if (!requestedName.empty()) {
+        const Entity* requested = state.FindEntityByName(requestedName);
+        if (requested != nullptr && state.IsEntityActiveInHierarchy(requested->id)) {
+            for (const Component& component : requested->components) {
+                if (isDirectional(component)) {
+                    if (outEntity != nullptr) {
+                        *outEntity = requested;
+                    }
+                    return &component;
+                }
+            }
+        }
+    }
+
+    for (const Entity& entity : state.Entities()) {
+        if (!state.IsEntityActiveInHierarchy(entity.id)) {
+            continue;
+        }
+        for (const Component& component : entity.components) {
+            if (isDirectional(component)) {
+                if (outEntity != nullptr) {
+                    *outEntity = &entity;
+                }
+                return &component;
+            }
+        }
+    }
+    return nullptr;
+}
+
+bool ResolveEnvironmentLightingSettings(const EditorState& state, bool sceneView,
+                                        EnvironmentLightingSettings* outSettings) {
+    if (outSettings == nullptr) {
+        return false;
+    }
+
+    for (const Entity& entity : state.Entities()) {
+        if (!state.IsEntityActiveInHierarchy(entity.id)) {
+            continue;
+        }
+        const Component* environment = FindComponent(entity, "EnvironmentLighting");
+        if (environment == nullptr || !ComponentEnabled(*environment)) {
+            continue;
+        }
+        const bool affectsView = sceneView ? ComponentBoolValue(*environment, "affectSceneView", true)
+                                           : ComponentBoolValue(*environment, "affectGameView", true);
+        if (!affectsView) {
+            continue;
+        }
+
+        EnvironmentLightingSettings settings;
+        settings.enabled = true;
+        const std::string mode = ToLower(ComponentPropertyValue(*environment, "skyboxMode"));
+        if (mode == "none") {
+            settings.skyboxMode = SkyboxRenderMode::None;
+        } else if (mode == "solid") {
+            settings.skyboxMode = SkyboxRenderMode::Solid;
+        } else {
+            settings.skyboxMode = SkyboxRenderMode::Gradient;
+        }
+        settings.topColor = ComponentColorValue(*environment, "topColor", settings.topColor);
+        settings.horizonColor = ComponentColorValue(*environment, "horizonColor", settings.horizonColor);
+        settings.groundColor = ComponentColorValue(*environment, "groundColor", settings.groundColor);
+        settings.exposure = std::clamp(ComponentFloatValue(*environment, "exposure", settings.exposure), 0.001f, 8.0f);
+        settings.horizonHeight = Clamp01(ComponentFloatValue(*environment, "horizonHeight", settings.horizonHeight));
+        settings.ambientColor = ComponentColorValue(*environment, "ambientColor", settings.ambientColor);
+        settings.ambientIntensity = std::max(0.0f, ComponentFloatValue(*environment, "ambientIntensity", settings.ambientIntensity));
+        settings.sunEntityName = ComponentPropertyValue(*environment, "sunEntity");
+        settings.showSunDisk = ComponentBoolValue(*environment, "showSunDisk", settings.showSunDisk);
+        settings.sunDiskSize = Clamp01(ComponentFloatValue(*environment, "sunDiskSize", settings.sunDiskSize));
+        settings.sunDiskIntensity = std::max(0.0f, ComponentFloatValue(*environment, "sunDiskIntensity", settings.sunDiskIntensity));
+
+        const Entity* sunEntity = nullptr;
+        if (const Component* light = FindDirectionalLightComponent(state, settings.sunEntityName, &sunEntity)) {
+            settings.sunColor = ComponentColorValue(*light, "color", settings.sunColor);
+            settings.sunIntensity = std::max(0.0f, ComponentFloatValue(*light, "intensity", settings.sunIntensity));
+            if (sunEntity != nullptr) {
+                settings.sunDirection = DirectionalLightDirectionFromEntity(*sunEntity);
+                settings.sunEntityName = sunEntity->name;
+            }
+        }
+        *outSettings = settings;
+        return true;
+    }
+
+    outSettings->enabled = false;
+    return false;
+}
+
 bool ResolveFogSettings(const EditorState& state, bool sceneView, FogRenderSettings* outSettings) {
     if (outSettings == nullptr) {
         return false;
@@ -1838,6 +2001,7 @@ ImVec4 TerrainColorToImVec4(std::array<float, 4> color) {
 struct TerrainRenderCache {
     TerrainMesh mesh;
     int editRevision = -1;
+    int materialRevision = -1;
     int resolution = 0;
     int chunkSize = 0;
     std::array<float, 3> size{0.0f, 0.0f, 0.0f};
@@ -2467,6 +2631,7 @@ TerrainRenderCache& UpdateTerrainRenderCache(int entityId, const TerrainData& da
         cache.chunkSize = data.chunkSize;
         cache.size = data.size;
         cache.editRevision = data.editRevision;
+        cache.materialRevision = data.materialRevision;
         ++cache.fullRebuilds;
         return cache;
     }
@@ -2479,6 +2644,26 @@ TerrainRenderCache& UpdateTerrainRenderCache(int entityId, const TerrainData& da
             ++cache.fullRebuilds;
         }
         cache.editRevision = data.editRevision;
+        cache.materialRevision = data.materialRevision;
+    } else if (cache.materialRevision != data.materialRevision) {
+        std::vector<int> chunks = data.dirtyMaterialChunks;
+        if (chunks.empty()) {
+            chunks.resize(cache.mesh.chunks.size());
+            std::iota(chunks.begin(), chunks.end(), 0);
+        }
+        const double startedMs = NowMilliseconds();
+        const bool refreshed = RefreshTerrainMeshChunkMaterials(data, chunks, &cache.mesh);
+        const double elapsedMs = NowMilliseconds() - startedMs;
+        if (refreshed) {
+            gTerrainPerfFrame.terrainMaterialUpdateMs += elapsedMs;
+            gTerrainPerfFrame.materialChunksUpdatedThisFrame += static_cast<int>(chunks.size());
+            cache.materialRevision = data.materialRevision;
+        } else {
+            cache.mesh = BuildTerrainMesh(data);
+            ++cache.fullRebuilds;
+            cache.editRevision = data.editRevision;
+            cache.materialRevision = data.materialRevision;
+        }
     }
     return cache;
 }
@@ -12996,6 +13181,19 @@ void EditorApp::CreateFogEnvironmentTemplate(const char* source) {
     state_.AddLog(LogLevel::Info, std::string(source) + " created Fog Environment.");
 }
 
+void EditorApp::CreateEnvironmentLightingTemplate(const char* source) {
+    if (!EnsureEditModeForAction("Create environment lighting")) {
+        return;
+    }
+
+    state_.PushUndoSnapshot("Create Environment Lighting");
+    Entity& entity =
+        state_.CreateEntity("Scene Environment", {MakeTransformComponent(), MakeEnvironmentLightingComponent()});
+    state_.SelectEntity(entity.id);
+    state_.MarkSceneDirty("Created environment lighting.");
+    state_.AddLog(LogLevel::Info, std::string(source) + " created Environment Lighting.");
+}
+
 void EditorApp::CreateUICanvasTemplate(const char* source) {
     if (!EnsureEditModeForAction("Create UI canvas template")) {
         return;
@@ -14337,6 +14535,59 @@ void EditorApp::DrawTerrainCreateSection() {
         ImGui::SetWindowFocus("Inspector");
     }
     ImGui::EndDisabled();
+}
+
+void EditorApp::DrawLightingPanel(EditorPanelInstance& panel) {
+    PerformanceScope scope(&profiler_, PerformanceDomain::Editor, "Editor.LightingPanel");
+    if (!BeginPanel(panel, ImVec2(340.0f, 280.0f))) {
+        ImGui::End();
+        return;
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_Text, AccentColor());
+    ImGui::TextUnformatted("Lighting");
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+
+    ImGui::BeginDisabled(!state_.IsEditMode());
+    if (ImGui::Button("Create Environment Lighting", ImVec2(-1.0f, 0.0f))) {
+        CreateEnvironmentLightingTemplate("Lighting panel");
+    }
+    ImGui::EndDisabled();
+
+    ImGui::Spacing();
+    Entity* selected = state_.FindEntity(state_.SelectedEntityId());
+    Component* selectedLighting =
+        selected == nullptr ? nullptr : FindComponentByType(*selected, "EnvironmentLighting");
+    if (selectedLighting != nullptr) {
+        DrawStatusBadge("Selected Environment", ImVec4(0.54f, 0.66f, 0.86f, 1.0f));
+        ImGui::SameLine();
+        DrawMutedWrapped(selected->name);
+        DrawComponentPropertyBody(*selectedLighting, FindRuntimeSchema(selectedLighting->type));
+    } else {
+        DrawMutedWrapped("Select an EnvironmentLighting object to edit sky, ambient, and sun settings.");
+    }
+
+    ImGui::Spacing();
+    if (ImGui::BeginChild("lighting_entity_list", ImVec2(0.0f, Scaled(130.0f)), true)) {
+        bool any = false;
+        for (const Entity& entity : state_.Entities()) {
+            if (!HasComponentType(entity, "EnvironmentLighting")) {
+                continue;
+            }
+            any = true;
+            if (ImGui::Selectable(entity.name.c_str(), entity.id == state_.SelectedEntityId())) {
+                state_.SelectEntity(entity.id);
+                ImGui::SetWindowFocus("Inspector");
+            }
+        }
+        if (!any) {
+            ImGui::TextDisabled("No EnvironmentLighting object in the current scene.");
+        }
+    }
+    ImGui::EndChild();
+
+    ImGui::End();
 }
 
 void EditorApp::DrawTerrainInspectorBody(Component* terrainComponent) {

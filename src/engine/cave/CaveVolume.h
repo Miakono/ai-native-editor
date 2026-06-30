@@ -237,6 +237,7 @@ void NormalizeCaveLayerWeightsAt(CaveVolumeData* data, int sampleIndex);
 CaveMesh BuildCaveMesh(const CaveVolumeData& data);
 CaveMeshChunk BuildCaveMeshChunk(const CaveVolumeData& data, int chunkX, int chunkY, int chunkZ);
 bool RebuildCaveMeshChunks(const CaveVolumeData& data, const std::vector<int>& chunkIndices, CaveMesh* mesh);
+bool RefreshCaveMeshChunkMaterials(const CaveVolumeData& data, const std::vector<int>& chunkIndices, CaveMesh* mesh);
 
 std::string CaveBrushModeLabel(CaveBrushMode mode);
 std::string CaveFalloffLabel(CaveFalloffCurve curve);
