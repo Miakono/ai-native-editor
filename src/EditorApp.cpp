@@ -43,6 +43,7 @@
 #include <functional>
 #include <iomanip>
 #include <limits>
+#include <numeric>
 #include <sstream>
 #include <system_error>
 #include <thread>
@@ -1815,6 +1816,41 @@ ImVec4 BlendFogSkyColor(ImVec4 clearColor, const FogRenderSettings* fog) {
     return ClampColor(result);
 }
 
+ImVec4 EnvironmentSkyColor(const EnvironmentLightingSettings* environment, float t, ImVec4 fallback) {
+    if (environment == nullptr || !environment->enabled || environment->skyboxMode == SkyboxRenderMode::None) {
+        return fallback;
+    }
+    if (environment->skyboxMode == SkyboxRenderMode::Solid) {
+        return ApplyExposure(environment->horizonColor, environment->exposure);
+    }
+
+    t = Clamp01(t);
+    const float horizon = std::clamp(environment->horizonHeight, 0.001f, 0.999f);
+    ImVec4 color =
+        t >= horizon
+            ? MixColor(environment->horizonColor, environment->topColor, (t - horizon) / (1.0f - horizon))
+            : MixColor(environment->groundColor, environment->horizonColor, t / horizon);
+    return ApplyExposure(color, environment->exposure);
+}
+
+ImVec4 EnvironmentClearColor(ImVec4 fallback, const EnvironmentLightingSettings* environment,
+                             const FogRenderSettings* fog) {
+    return BlendFogSkyColor(EnvironmentSkyColor(environment, 0.56f, fallback), fog);
+}
+
+ImVec4 ApplyEnvironmentLightingToColor(ImVec4 color, const EnvironmentLightingSettings* environment) {
+    if (environment == nullptr || !environment->enabled) {
+        return color;
+    }
+    const float alpha = color.w;
+    const ImVec4 ambient = ApplyExposure(environment->ambientColor, environment->exposure);
+    const float ambientBlend = std::clamp(environment->ambientIntensity * 0.28f, 0.0f, 0.65f);
+    color = MixColor(color, ambient, ambientBlend);
+    color = ApplyExposure(color, environment->exposure);
+    color.w = alpha;
+    return ClampColor(color);
+}
+
 void ApplyEntityPose(const Entity& entity) {
     glTranslatef(entity.position[0], entity.position[1], entity.position[2]);
     glRotatef(entity.rotation[2], 0.0f, 0.0f, 1.0f);
@@ -2801,6 +2837,7 @@ ImVec4 CaveColorToImVec4(std::array<float, 4> color) {
 struct CaveRenderCache {
     CaveMesh mesh;
     int editRevision = -1;
+    int materialRevision = -1;
     std::array<int, 3> resolution{0, 0, 0};
     int chunkSize = 0;
     std::array<float, 3> size{0.0f, 0.0f, 0.0f};
@@ -2810,10 +2847,12 @@ struct CaveRenderCache {
     std::vector<GLuint> textureIds;
     std::vector<int> textureLayerIndices;
     int displayRevision = -1;
+    int displayMaterialRevision = -1;
     int fullRebuilds = 0;
     int chunkRebuilds = 0;
     int queuedEditRevision = -1;
     std::vector<int> pendingChunkRebuilds;
+    std::vector<int> pendingMaterialChunkUploads;
 };
 
 std::unordered_map<int, CaveRenderCache> gCaveRenderCache;
@@ -2838,6 +2877,8 @@ void InvalidateCaveDisplayLists(CaveRenderCache& cache) {
     cache.textureIds.clear();
     cache.textureLayerIndices.clear();
     cache.displayRevision = -1;
+    cache.displayMaterialRevision = -1;
+    cache.pendingMaterialChunkUploads.clear();
 }
 
 bool CaveCacheMatches(const CaveRenderCache& cache, const CaveVolumeData& data) {
@@ -2857,8 +2898,10 @@ CaveRenderCache& UpdateCaveRenderCache(int entityId, const CaveVolumeData& data,
         cache.chunkSize = data.chunkSize;
         cache.size = data.size;
         cache.editRevision = data.editRevision;
+        cache.materialRevision = data.materialRevision;
         cache.queuedEditRevision = -1;
         cache.pendingChunkRebuilds.clear();
+        cache.pendingMaterialChunkUploads.clear();
         ++cache.fullRebuilds;
         if (recordTerrainVolumeStats) {
             gTerrainPerfFrame.terrainVolumeMesherBuildAllMs += elapsedMs;
@@ -2899,6 +2942,7 @@ CaveRenderCache& UpdateCaveRenderCache(int entityId, const CaveVolumeData& data,
                 cache.pendingChunkRebuilds.clear();
                 cache.queuedEditRevision = -1;
                 cache.editRevision = data.editRevision;
+                cache.materialRevision = data.materialRevision;
                 return cache;
             }
 
@@ -2911,6 +2955,7 @@ CaveRenderCache& UpdateCaveRenderCache(int entityId, const CaveVolumeData& data,
             if (cache.pendingChunkRebuilds.empty()) {
                 cache.queuedEditRevision = -1;
                 cache.editRevision = data.editRevision;
+                cache.materialRevision = data.materialRevision;
             }
             return cache;
         }
@@ -2943,6 +2988,39 @@ CaveRenderCache& UpdateCaveRenderCache(int entityId, const CaveVolumeData& data,
             InvalidateCaveDisplayLists(cache);
         }
         cache.editRevision = data.editRevision;
+        cache.materialRevision = data.materialRevision;
+    } else if (cache.materialRevision != data.materialRevision) {
+        std::vector<int> chunks = data.dirtyMaterialChunks;
+        if (chunks.empty()) {
+            chunks.resize(cache.mesh.chunks.size());
+            std::iota(chunks.begin(), chunks.end(), 0);
+        }
+        const double startedMs = NowMilliseconds();
+        const bool refreshed = RefreshCaveMeshChunkMaterials(data, chunks, &cache.mesh);
+        const double elapsedMs = NowMilliseconds() - startedMs;
+        if (refreshed) {
+            cache.materialRevision = data.materialRevision;
+            if (recordTerrainVolumeStats) {
+                gTerrainPerfFrame.terrainMaterialUpdateMs += elapsedMs;
+                gTerrainPerfFrame.materialChunksUpdatedThisFrame += static_cast<int>(chunks.size());
+                cache.pendingMaterialChunkUploads = std::move(chunks);
+            } else {
+                InvalidateCaveDisplayLists(cache);
+            }
+        } else {
+            InvalidateCaveDisplayLists(cache);
+            const double fullStartedMs = NowMilliseconds();
+            cache.mesh = BuildCaveMesh(data);
+            const double fullElapsedMs = NowMilliseconds() - fullStartedMs;
+            ++cache.fullRebuilds;
+            cache.editRevision = data.editRevision;
+            cache.materialRevision = data.materialRevision;
+            if (recordTerrainVolumeStats) {
+                gTerrainPerfFrame.terrainVolumeMesherBuildAllMs += fullElapsedMs;
+                ++gTerrainPerfFrame.fullTerrainRebuilds;
+                gTerrainPerfFrame.chunksMeshedThisFrame += static_cast<int>(cache.mesh.chunks.size());
+            }
+        }
     }
     return cache;
 }
@@ -14557,8 +14635,15 @@ void EditorApp::DrawLightingPanel(EditorPanelInstance& panel) {
 
     ImGui::Spacing();
     Entity* selected = state_.FindEntity(state_.SelectedEntityId());
-    Component* selectedLighting =
-        selected == nullptr ? nullptr : FindComponentByType(*selected, "EnvironmentLighting");
+    Component* selectedLighting = nullptr;
+    if (selected != nullptr) {
+        auto lightingIt = std::find_if(selected->components.begin(), selected->components.end(), [](Component& component) {
+            return component.type == "EnvironmentLighting";
+        });
+        if (lightingIt != selected->components.end()) {
+            selectedLighting = &(*lightingIt);
+        }
+    }
     if (selectedLighting != nullptr) {
         DrawStatusBadge("Selected Environment", ImVec4(0.54f, 0.66f, 0.86f, 1.0f));
         ImGui::SameLine();
