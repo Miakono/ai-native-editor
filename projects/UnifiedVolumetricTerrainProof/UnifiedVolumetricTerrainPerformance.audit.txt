@@ -1,0 +1,20 @@
+UnifiedVolumetricTerrainProof performance audit
+baseline.cacheDisabled=true
+baseline.frames=90
+baseline.avgTerrainUpdateMs=91.3578
+baseline.avgRenderSubmitMs=0.00703666
+baseline.avgTerrainParses=1
+cached.cacheDisabled=false
+cached.frames=90
+cached.avgTerrainUpdateMs=0
+cached.avgRenderSubmitMs=0.00136778
+cached.avgTerrainParses=0
+cached.maxDirtyChunks=0
+cached.maxChunksMeshed=0
+cached.maxCollisionChunks=0
+cached.maxMeshUploads=0
+cached.maxLegacyHeightfieldSubmits=0
+cached.collisionUpdateMode=Deferred
+brush.dirtyChunks=8
+brush.firstFrameChunksMeshed=4
+brush.drainFrames=1

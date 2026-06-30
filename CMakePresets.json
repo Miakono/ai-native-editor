@@ -1,0 +1,33 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "windows-ninja-debug",
+      "displayName": "Windows Ninja Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-ninja-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "windows-ninja-release",
+      "displayName": "Windows Ninja Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-ninja-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-ninja-debug",
+      "configurePreset": "windows-ninja-debug"
+    },
+    {
+      "name": "windows-ninja-release",
+      "configurePreset": "windows-ninja-release"
+    }
+  ]
+}

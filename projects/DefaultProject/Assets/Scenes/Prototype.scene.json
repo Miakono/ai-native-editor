@@ -1,0 +1,339 @@
+{
+  "entities": [
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 3, 8",
+            "rotation": "-20, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "clearColor": "0.05, 0.06, 0.07, 1",
+            "cullingMask": "Everything",
+            "far": "1000",
+            "fov": "60",
+            "near": "0.1",
+            "orthographicSize": "5",
+            "projection": "Perspective",
+            "viewportHeight": "1",
+            "viewportRect": "0, 0, 1"
+          },
+          "type": "Camera"
+        },
+        {
+          "properties": {
+            "boundsEnabled": "false",
+            "debugGizmos": "true",
+            "distance": "8",
+            "lookAheadMaxDistance": "0.5",
+            "lookAheadTime": "0.08",
+            "mode": "Orbit",
+            "offset": "0, 0, 0",
+            "orbitPitchDegrees": "-20",
+            "orbitYawDegrees": "0",
+            "pitchDegrees": "-20",
+            "rotationSmoothTime": "0.18",
+            "shakeProfile": "Medium",
+            "smoothTime": "0.18",
+            "targetName": "Placeholder Cube",
+            "teleportResetDistance": "20",
+            "yawDegrees": "0"
+          },
+          "type": "CameraFollowRuntime"
+        }
+      ],
+      "id": 1,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "Main Camera",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          3.0,
+          8.0
+        ],
+        "rotation": [
+          -20.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0, 0",
+            "rotation": "45, -30, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "color": "1, 0.95, 0.82",
+            "intensity": "1.0",
+            "type": "Directional"
+          },
+          "type": "Light"
+        }
+      ],
+      "id": 2,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "Directional Light",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          45.0,
+          -30.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0.5, 0",
+            "rotation": "0, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "PrototypeGray",
+            "mesh": "UnitCube"
+          },
+          "type": "MeshRenderer"
+        }
+      ],
+      "id": 3,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "Placeholder Cube",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 4, 9",
+            "rotation": "-22, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "far": "1000",
+            "fov": "60",
+            "near": "0.1"
+          },
+          "type": "Camera"
+        }
+      ],
+      "id": 4,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "AI Main Camera",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          4.0,
+          9.0
+        ],
+        "rotation": [
+          -22.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0, 0",
+            "rotation": "45, -35, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "color": "1, 0.95, 0.82",
+            "intensity": "1.0",
+            "type": "Directional"
+          },
+          "type": "Light"
+        }
+      ],
+      "id": 5,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "AI Key Light",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          45.0,
+          -35.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, -0.05, 0",
+            "rotation": "0, 0, 0",
+            "scale": "8, 0.1, 8"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "PrototypeGray",
+            "mesh": "GroundPlane"
+          },
+          "type": "MeshRenderer"
+        }
+      ],
+      "id": 6,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "AI Ground Plane",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          -0.05000000074505806,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          8.0,
+          0.10000000149011612,
+          8.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0.5, -2",
+            "rotation": "0, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "PrototypeGray",
+            "mesh": "SpawnMarker"
+          },
+          "type": "MeshRenderer"
+        }
+      ],
+      "id": 7,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "AI Player Spawn",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          0.5,
+          -2.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "format": "aine.scene",
+  "name": "Prototype.scene.json",
+  "version": 1
+}

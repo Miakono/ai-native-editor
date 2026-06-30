@@ -1,0 +1,20 @@
+{
+  "activeScene": "Assets/Scenes/Physics3D.scene.json",
+  "assetRoot": "Assets",
+  "directories": {
+    "assetRoot": "Assets",
+    "saveDataRoot": "Saved",
+    "sceneRoot": "Assets/Scenes"
+  },
+  "enabledPlugins": [],
+  "engineVersion": "0.1.0",
+  "format": "aine.project",
+  "gameSaveRoot": "Saved",
+  "projectName": "Physics Demos",
+  "sceneRoot": "Assets/Scenes",
+  "scenes": [
+    "Assets/Scenes/Physics2D.scene.json",
+    "Assets/Scenes/Physics3D.scene.json"
+  ],
+  "version": 1
+}

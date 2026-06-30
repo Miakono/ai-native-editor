@@ -1,0 +1,20 @@
+{
+  "activeScene": "Assets/Scenes/CoinDash.scene.json",
+  "assetRoot": "Assets",
+  "directories": {
+    "assetRoot": "Assets",
+    "saveDataRoot": "Saved",
+    "sceneRoot": "Assets/Scenes"
+  },
+  "enabledPlugins": [],
+  "engineVersion": "0.1.0",
+  "format": "aine.project",
+  "gameSaveRoot": "Saved",
+  "projectName": "First Game - Coin Dash",
+  "sceneRoot": "Assets/Scenes",
+  "scenes": [
+    "Assets/Scenes/CoinDash.scene.json"
+  ],
+  "testFixture": true,
+  "version": 1
+}

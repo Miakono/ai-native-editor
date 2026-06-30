@@ -1,0 +1,38 @@
+build/
+out/
+.vs/
+.vscode/
+CMakeUserPresets.json
+ai_native_editor.ini
+imgui.ini
+*.user
+*.obj
+*.pdb
+*.ilk
+*.exe
+
+# Local environment and credentials.
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Local Codex/agent state and generated run artifacts.
+.agents/
+.codex/
+docs/agent-memory/run_log.jsonl
+docs/agent-memory/provider_file_changes.jsonl
+docs/agent-memory/visuals/
+docs/agent-memory/videos/
+
+# Generated project/build outputs.
+**/Library/
+**/Temp/
+**/Saved/
+**/Builds/
+bin/
+obj/
+*.dll
+*.lib
+*.exp

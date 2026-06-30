@@ -1,0 +1,39 @@
+{
+  "format": "aine.entityTemplates",
+  "version": 1,
+  "templates": [
+    {
+      "name": "Player Controller",
+      "components": [
+        "Transform",
+        "MeshRenderer",
+        "CharacterControllerRuntime"
+      ]
+    },
+    {
+      "name": "Coin Collectible",
+      "components": [
+        "Transform",
+        "MeshRenderer",
+        "CollectibleRuntime",
+        "SpinRuntime"
+      ]
+    },
+    {
+      "name": "Goal Gate",
+      "components": [
+        "Transform",
+        "MeshRenderer",
+        "GoalRuntime"
+      ]
+    },
+    {
+      "name": "Hazard Block",
+      "components": [
+        "Transform",
+        "MeshRenderer",
+        "HazardRuntime"
+      ]
+    }
+  ]
+}

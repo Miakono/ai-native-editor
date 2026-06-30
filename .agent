@@ -1,0 +1,67 @@
+# AI Native Editor Agent Brief
+
+This repository is the AI Native Editor prototype: a native C++ desktop game editor and runtime using CMake, GLFW, OpenGL, Dear ImGui docking, and the `ai_native_engine` library.
+
+## Operating Rules
+
+- Read the relevant docs and source before editing. Start with `README.md`, `docs/building.md`, `docs/architecture/system-architecture.md`, `docs/architecture/runtime-editor-separation.md`, `docs/ai/ai-editor-agent.md`, and `docs/ai/agent-backends-and-local-assist.md` when the task touches agent behavior.
+- Keep changes narrow, additive, and aligned with the existing ownership boundaries.
+- Do not store API keys, provider credentials, or private tokens in project files, generated agent memory, logs, or test fixtures.
+- Do not copy Unity, Unreal, or other proprietary engine/editor internals or proprietary asset formats.
+- Treat compile/build success, smoke-test success, runtime proof, and UI proof as separate claims. Report exactly what was verified.
+
+## Architecture Boundaries
+
+- `ai_native_engine` owns engine data and runtime behavior: entities, components, scene JSON serialization, validation, `EngineRuntime`, physics, and runtime systems.
+- `ai_native_player` owns standalone project/scene loading and runtime ticking without editor UI.
+- `EditorApp` owns editor UI, docked panels, project/session paths, selection, undo/redo, asset import records, script authoring files, plugin install state, chat/activity UI, and smoke hooks.
+- `AgentOrchestrator` owns provider health, prompt wrapping, backend launch/execution, provider status, and Codex/OpenAI/Claude adapter behavior.
+- `ToolGateway` owns schema-validated editor command batches. Scene and project mutations should flow through undoable editor commands, not uncontrolled provider writes.
+- `ProviderResult` owns normalized provider output parsing for chat responses, proposed command batches, diagnostics, provider errors, and proposed file changes.
+
+## Agent Workflow
+
+- The visible user workflow should stay centered on one clear Agent surface.
+- Short user requests should become editable implementation briefs with goal, inferred intent, project context, likely files, constraints, acceptance criteria, verification, and final-report expectations.
+- When the user chooses Run With Codex or another development backend, run the generated/edited brief, not the raw short request.
+- Send large Codex prompts through stdin (`codex exec -`) to avoid Windows command-line length failures.
+- Local Prompt Assistant behavior is read-only. It may suggest text or intent chips, but it must not directly edit scenes, files, or assets.
+- Local Tool Gateway may apply only explicit supported deterministic scene/project commands.
+- Broad gameplay, editor-feature, or code-development requests must route to a development backend or produce a diagnostic. They must not silently create canned placeholder scene objects.
+- External provider command batches and file changes must be shown as Proposed Actions and require approval before apply.
+- Provider failures must fail closed with visible status such as connected, running, chat-only answer, proposed action waiting for approval, applied, applied with diagnostics, failed validation, timed out, backend unavailable, or not verified.
+- Persist generated prompts, run starts, run completions, and summaries under `docs/agent-memory/run_log.jsonl` when agent-run artifacts are created.
+
+## Verification
+
+Use the smallest proof gate that covers the touched area, then state any remaining proof gap.
+
+Common commands from the repository root:
+
+```powershell
+cmake --preset windows-ninja-debug
+cmake --build --preset windows-ninja-debug
+.\build\windows-ninja-debug\ai_native_editor.exe --smoke-test
+.\scripts\run-smoke-tests.ps1
+```
+
+Focused smoke examples:
+
+```powershell
+.\build\windows-ninja-debug\ai_native_editor.exe --smoke-test --smoke-test-first-game
+.\build\windows-ninja-debug\ai_native_editor.exe --smoke-test --smoke-test-runtime-logs --smoke-test-frames=120
+.\build\windows-ninja-debug\ai_native_editor.exe --smoke-test --smoke-test-runtime-ui --project-root="build\runtime-ui-smoke" --smoke-test-frames=120
+.\build\windows-ninja-debug\ai_native_editor.exe --smoke-test --smoke-test-provider-file-change --project-root="build\provider-file-change-smoke"
+.\build\windows-ninja-debug\ai_native_editor.exe --smoke-test --smoke-test-project-builder --project-root="build\project-builder-smoke"
+```
+
+If the default debug executable is locked by a running editor, use a fresh build directory or `scripts/run-smoke-tests.ps1 -SkipBuild -BuildDir <path>` only when that directory is already built.
+
+## Final Report
+
+When finishing a task, report:
+
+- Summary of behavior changed.
+- Files changed and why.
+- Verification commands run and pass/fail results.
+- Remaining limitations or proof boundaries.

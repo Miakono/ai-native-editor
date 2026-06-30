@@ -1,0 +1,195 @@
+﻿{
+    "activeScene":  "Assets/Scenes/Prototype.scene.json",
+    "assetDatabase":  "ProjectSettings/AssetDatabase.json",
+    "assetRoot":  "Assets",
+    "buildSettings":  {
+                          "architecture":  "x64",
+                          "configuration":  "Debug",
+                          "copyProjectFiles":  true,
+                          "developmentBuild":  true,
+                          "executableName":  "AINativeGame",
+                          "generateInstallerManifest":  true,
+                          "generateUpdaterManifest":  true,
+                          "multiplayer":  {
+                                              "bindAddress":  "127.0.0.1",
+                                              "enabled":  false,
+                                              "maxPlayers":  4,
+                                              "port":  7777,
+                                              "topology":  "Single Player",
+                                              "transport":  "Local Loopback"
+                                          },
+                          "outputDirectory":  "Builds/Windows",
+                          "releaseChannel":  "internal",
+                          "runPlayerSmokeAfterBuild":  false,
+                          "scenes":  [
+                                         "Assets/Scenes/Prototype.scene.json"
+                                     ],
+                          "signingMode":  "Unsigned",
+                          "targetPlatform":  "Windows"
+                      },
+    "buildTargets":  [
+                         {
+                             "architecture":  "x64",
+                             "configuration":  "Debug",
+                             "outputDirectory":  "Builds/Windows",
+                             "platform":  "Windows"
+                         }
+                     ],
+    "directories":  {
+                        "assetRoot":  "Assets",
+                        "saveDataRoot":  "Saved",
+                        "sceneRoot":  "Assets/Scenes"
+                    },
+    "enabledPlugins":  [
+
+                       ],
+    "engineVersion":  "0.1.0",
+    "format":  "aine.project",
+    "gameSaveRoot":  "Saved",
+    "plugins":  [
+
+                ],
+    "projectName":  "Multi Cave Demos",
+    "projectSettings":  {
+                            "layers":  [
+                                           "Default",
+                                           "TransparentFX",
+                                           "Ignore Raycast",
+                                           "Water",
+                                           "UI",
+                                           "Gameplay",
+                                           "Environment",
+                                           "Player",
+                                           "Enemy",
+                                           "Physics"
+                                       ],
+                            "physics":  {
+                                            "disabledLayerCollisionPairs":  [
+
+                                                                            ]
+                                        },
+                            "tags":  [
+                                         "Untagged",
+                                         "Player",
+                                         "MainCamera",
+                                         "GameController",
+                                         "Collectible",
+                                         "Respawn",
+                                         "Finish",
+                                         "EditorOnly"
+                                     ]
+                        },
+    "rendering":  {
+                      "activeProfile":  "basic-built-in",
+                      "graphicsBackend":  {
+                                              "allowed":  [
+                                                              "opengl"
+                                                          ],
+                                              "fallback":  "opengl",
+                                              "preferred":  "auto"
+                                          },
+                      "profiles":  {
+                                       "2d":  {
+                                                  "dimensionMode":  "2d",
+                                                  "displayName":  "2D",
+                                                  "features":  {
+                                                                   "editorGizmos":  true,
+                                                                   "mesh3d":  false,
+                                                                   "resourceBackedModels":  "not-supported",
+                                                                   "runtimeUi":  true,
+                                                                   "sprites":  true
+                                                               },
+                                                  "id":  "2d",
+                                                  "lightingModel":  "2d-basic",
+                                                  "materialModel":  "unlit-sprite",
+                                                  "postProcessing":  {
+                                                                         "effects":  [
+
+                                                                                     ],
+                                                                         "enabled":  false
+                                                                     },
+                                                  "requires":  [
+
+                                                               ]
+                                              },
+                                       "basic-built-in":  {
+                                                              "dimensionMode":  "mixed",
+                                                              "displayName":  "Basic Built-in",
+                                                              "features":  {
+                                                                               "editorGizmos":  true,
+                                                                               "mesh3d":  true,
+                                                                               "resourceBackedModels":  "placeholder",
+                                                                               "runtimeUi":  true,
+                                                                               "sprites":  false
+                                                                           },
+                                                              "id":  "basic-built-in",
+                                                              "lightingModel":  "none",
+                                                              "materialModel":  "unlit-color",
+                                                              "postProcessing":  {
+                                                                                     "effects":  [
+                                                                                                     "fog"
+                                                                                                 ],
+                                                                                     "enabled":  true
+                                                                                 },
+                                                              "requires":  [
+
+                                                                           ]
+                                                          },
+                                       "high-fidelity-3d":  {
+                                                                "dimensionMode":  "3d",
+                                                                "displayName":  "High Fidelity 3D",
+                                                                "features":  {
+                                                                                 "editorGizmos":  true,
+                                                                                 "mesh3d":  true,
+                                                                                 "resourceBackedModels":  "decoded",
+                                                                                 "runtimeUi":  true,
+                                                                                 "sprites":  false
+                                                                             },
+                                                                "id":  "high-fidelity-3d",
+                                                                "lightingModel":  "clustered-forward",
+                                                                "materialModel":  "pbr",
+                                                                "postProcessing":  {
+                                                                                       "effects":  [
+                                                                                                       "tonemapping",
+                                                                                                       "bloom",
+                                                                                                       "ssao"
+                                                                                                   ],
+                                                                                       "enabled":  true
+                                                                                   },
+                                                                "requires":  [
+                                                                                 "gpu-buffer-backend"
+                                                                             ]
+                                                            },
+                                       "lightweight-3d":  {
+                                                              "dimensionMode":  "3d",
+                                                              "displayName":  "Lightweight 3D",
+                                                              "features":  {
+                                                                               "editorGizmos":  true,
+                                                                               "mesh3d":  true,
+                                                                               "resourceBackedModels":  "placeholder",
+                                                                               "runtimeUi":  true,
+                                                                               "sprites":  false
+                                                                           },
+                                                              "id":  "lightweight-3d",
+                                                              "lightingModel":  "single-directional-plus-ambient",
+                                                              "materialModel":  "simple-lit",
+                                                              "postProcessing":  {
+                                                                                     "effects":  [
+                                                                                                     "fog",
+                                                                                                     "basic-color-grading"
+                                                                                                 ],
+                                                                                     "enabled":  true
+                                                                                 },
+                                                              "requires":  [
+
+                                                                           ]
+                                                          }
+                                   },
+                      "schemaVersion":  1
+                  },
+    "sceneRoot":  "Assets/Scenes",
+    "scenes":  [
+                   "Assets/Scenes/Prototype.scene.json"
+               ],
+    "version":  1
+}

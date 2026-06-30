@@ -1,0 +1,22 @@
+{
+  "asset": {
+    "generator": "AI Native smoke",
+    "version": "2.0"
+  },
+  "buffers": [
+    {
+      "byteLength": 11,
+      "uri": "mesh.bin"
+    }
+  ],
+  "images": [
+    {
+      "uri": "albedo.png"
+    }
+  ],
+  "meshes": [
+    {
+      "name": "SmokeMesh"
+    }
+  ]
+}

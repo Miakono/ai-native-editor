@@ -1,0 +1,366 @@
+{
+  "entities": [
+    {
+      "components": [
+        {
+          "properties": {
+            "broadphase": "AABB pair pruning",
+            "enabled": "true",
+            "fixedDeltaSeconds": "0.0166667",
+            "gravity2D": "0, -9.81",
+            "gravity3D": "0, -9.81, 0",
+            "solverIterations": "8"
+          },
+          "type": "PhysicsSettings"
+        }
+      ],
+      "id": 1,
+      "name": "Physics Settings",
+      "parentId": 0,
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "0, 5.5, 9",
+            "rotation": "-35, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "far": "1000",
+            "fov": "60",
+            "near": "0.1"
+          },
+          "type": "Camera"
+        }
+      ],
+      "id": 2,
+      "name": "Main Camera",
+      "parentId": 0,
+      "transform": {
+        "position": [0.0, 5.5, 9.0],
+        "rotation": [-35.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0, 0",
+            "rotation": "50, -35, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "color": "1, 0.95, 0.82",
+            "intensity": "1.0",
+            "type": "Directional"
+          },
+          "type": "Light"
+        }
+      ],
+      "id": 3,
+      "name": "Directional Light",
+      "parentId": 0,
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [50.0, -35.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "0, -0.5, 0",
+            "rotation": "0, 0, 0",
+            "scale": "8, 1, 8"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "GroundMat",
+            "mesh": "GroundPlane"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "awake": "true",
+            "bodyType": "Static",
+            "friction": "0.85",
+            "gravityScale": "1",
+            "mass": "1",
+            "restitution": "0",
+            "useGravity": "false",
+            "velocity": "0, 0, 0"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "radius": "0.5",
+            "shape": "Box",
+            "size": "1, 1, 1",
+            "trigger": "false"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 4,
+      "name": "3D Static Floor",
+      "parentId": 0,
+      "transform": {
+        "position": [0.0, -0.5, 0.0],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [8.0, 1.0, 8.0]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "-4, 1.5, 0",
+            "rotation": "0, 0, 0",
+            "scale": "0.25, 4, 8"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "WallSlate",
+            "mesh": "WallBlock"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "bodyType": "Static",
+            "mass": "1",
+            "useGravity": "false",
+            "velocity": "0, 0, 0"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "shape": "Box",
+            "size": "1, 1, 1",
+            "trigger": "false"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 5,
+      "name": "3D Left Wall",
+      "parentId": 0,
+      "transform": {
+        "position": [-4.0, 1.5, 0.0],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [0.25, 4.0, 8.0]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "-1.2, 4.5, 0",
+            "rotation": "0, 0, 0",
+            "scale": "0.9, 0.9, 0.9"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "PlayerBlue",
+            "mesh": "UnitCube"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "angularVelocity": "0, 40, 0",
+            "awake": "true",
+            "bodyType": "Dynamic",
+            "damping": "0.02",
+            "friction": "0.45",
+            "gravityScale": "1",
+            "mass": "1",
+            "restitution": "0.35",
+            "useGravity": "true",
+            "velocity": "1.8, 0, 0.25"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "radius": "0.5",
+            "shape": "Sphere",
+            "size": "1, 1, 1",
+            "trigger": "false"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 6,
+      "name": "3D Falling Sphere",
+      "parentId": 0,
+      "transform": {
+        "position": [-1.2, 4.5, 0.0],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [0.9, 0.9, 0.9]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "1.4, 5.8, 0.6",
+            "rotation": "0, 18, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "CoinGold",
+            "mesh": "UnitCube"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "angularVelocity": "0, -25, 35",
+            "awake": "true",
+            "bodyType": "Dynamic",
+            "damping": "0.02",
+            "friction": "0.6",
+            "gravityScale": "1",
+            "mass": "1.5",
+            "restitution": "0.18",
+            "useGravity": "true",
+            "velocity": "-1.1, 0, -0.2"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "radius": "0.5",
+            "shape": "Box",
+            "size": "1, 1, 1",
+            "trigger": "false"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 7,
+      "name": "3D Falling Box",
+      "parentId": 0,
+      "transform": {
+        "position": [1.4, 5.8, 0.6],
+        "rotation": [0.0, 18.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "2.5, 0.8, 0",
+            "rotation": "0, 0, 0",
+            "scale": "1.25, 1.25, 1.25"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "GoalGreen",
+            "mesh": "GoalGate"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "bodyType": "Static",
+            "mass": "1",
+            "useGravity": "false",
+            "velocity": "0, 0, 0"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "radius": "0.8",
+            "shape": "Sphere",
+            "size": "1, 1, 1",
+            "trigger": "true"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 8,
+      "name": "3D Trigger Volume",
+      "parentId": 0,
+      "transform": {
+        "position": [2.5, 0.8, 0.0],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.25, 1.25, 1.25]
+      }
+    },
+    {
+      "components": [
+        {
+          "properties": {
+            "position": "0, 4, -2.5",
+            "rotation": "0, 0, 0",
+            "scale": "0.12, 1.5, 0.12"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "SpinnerCyan",
+            "mesh": "UnitCube"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "direction": "0, -1, 0",
+            "maxDistance": "10",
+            "origin": "0, 4, -2.5"
+          },
+          "type": "PhysicsRaycastProbe3D"
+        }
+      ],
+      "id": 9,
+      "name": "3D Raycast Down Probe",
+      "parentId": 0,
+      "transform": {
+        "position": [0.0, 4.0, -2.5],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [0.12, 1.5, 0.12]
+      }
+    }
+  ],
+  "format": "aine.scene",
+  "name": "Physics3D.scene.json",
+  "version": 1
+}

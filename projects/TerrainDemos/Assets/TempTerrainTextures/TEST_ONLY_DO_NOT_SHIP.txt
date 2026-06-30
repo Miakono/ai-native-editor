@@ -1,0 +1,3 @@
+Temporary terrain texture copies for local editor testing only.
+Source: C:/Users/Josh/Downloads/IronAndSpores-Unity/Assets/Game Buffs/Realistic Forest Environment Textures/Textures
+These paid asset textures must not be shipped with the engine/editor product.

@@ -1,0 +1,1334 @@
+{
+    "entities":  [
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0, 0",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "1, 1, 1"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "objective":  "Collect the required score and reach the goal.",
+                                                                   "requiredScore":  "3",
+                                                                   "title":  "Coin Dash"
+                                                               },
+                                                "type":  "GameRulesRuntime"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "interact":  "KeyboardInteract",
+                                                                   "jump":  "KeyboardJump",
+                                                                   "move":  "KeyboardMove",
+                                                                   "sprint":  "KeyboardSprint"
+                                                               },
+                                                "type":  "InputActionMapRuntime"
+                                            }
+                                        ],
+                         "id":  1,
+                         "name":  "Game Rules",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         1.0,
+                                                         1.0,
+                                                         1.0
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 6, 8",
+                                                                   "rotation":  "-38, 0, 0",
+                                                                   "scale":  "1, 1, 1"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "clearColor":  "0.05, 0.06, 0.07, 1",
+                                                                   "cullingMask":  "Everything",
+                                                                   "far":  "1000",
+                                                                   "fov":  "62",
+                                                                   "near":  "0.1",
+                                                                   "orthographicSize":  "5",
+                                                                   "projection":  "Perspective",
+                                                                   "viewportHeight":  "1",
+                                                                   "viewportRect":  "0, 0, 1"
+                                                               },
+                                                "type":  "Camera"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "blendTime":  "0.2",
+                                                                   "boundsEnabled":  "true",
+                                                                   "boundsMax":  "6, 10, 10",
+                                                                   "boundsMin":  "-6, 0.5, -12",
+                                                                   "chaseDistance":  "7",
+                                                                   "chaseHeight":  "3",
+                                                                   "collisionAvoidance":  "false",
+                                                                   "debugGizmos":  "true",
+                                                                   "deadZoneRadius":  "0.15",
+                                                                   "distance":  "7",
+                                                                   "lookAheadMaxDistance":  "1.25",
+                                                                   "lookAheadTime":  "0.16",
+                                                                   "mode":  "ThirdPerson",
+                                                                   "offset":  "0, 0, 0",
+                                                                   "pitchDegrees":  "-38",
+                                                                   "rotationSmoothTime":  "0.12",
+                                                                   "shakeProfile":  "Medium",
+                                                                   "smoothTime":  "0.16",
+                                                                   "softZoneRadius":  "1.0",
+                                                                   "targetName":  "Player",
+                                                                   "teleportResetDistance":  "14",
+                                                                   "yawDegrees":  "0"
+                                                               },
+                                                "type":  "CameraFollowRuntime"
+                                            }
+                                        ],
+                         "id":  2,
+                         "name":  "Main Camera",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            6.0,
+                                                            8.0
+                                                        ],
+                                           "rotation":  [
+                                                            -38.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         1.0,
+                                                         1.0,
+                                                         1.0
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0, 0",
+                                                                   "rotation":  "50, -35, 0",
+                                                                   "scale":  "1, 1, 1"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "color":  "1, 0.95, 0.82",
+                                                                   "intensity":  "1.0",
+                                                                   "type":  "Directional"
+                                                               },
+                                                "type":  "Light"
+                                            }
+                                        ],
+                         "id":  3,
+                         "name":  "Directional Light",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "rotation":  [
+                                                            50.0,
+                                                            -35.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         1.0,
+                                                         1.0,
+                                                         1.0
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, -0.05, 0",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "5, 0.1, 8"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "GroundMat",
+                                                                   "mesh":  "GroundPlane"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               }
+                                            }
+                                        ],
+                         "id":  4,
+                         "name":  "Ground Lane",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            -0.05000000074505806,
+                                                            0.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         5.0,
+                                                         0.10000000149011612,
+                                                         8.0
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0.5, 3",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.75, 0.75, 0.75"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "PlayerBlue",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "input":  "InputActionMapRuntime.move",
+                                                                   "plane":  "XZ",
+                                                                   "speedUnitsPerSecond":  "3.25",
+                                                                   "sprintMultiplier":  "1.0"
+                                                               },
+                                                "type":  "CharacterControllerRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Kinematic",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               }
+                                            }
+                                        ],
+                         "id":  5,
+                         "name":  "Player",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.5,
+                                                            3.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.75,
+                                                         0.75,
+                                                         0.75
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0.55, 1.5",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.35, 0.35, 0.35"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "CoinGold",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "points":  "1",
+                                                                   "radius":  "0.65",
+                                                                   "collected":  "false"
+                                                               },
+                                                "type":  "CollectibleRuntime"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "speedYDegreesPerSecond":  "120"
+                                                               },
+                                                "type":  "SpinRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Sphere",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true",
+                                                                   "radius":  "0.5"
+                                                               }
+                                            }
+                                        ],
+                         "id":  6,
+                         "name":  "Coin A",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.550000011920929,
+                                                            1.5
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.3499999940395355,
+                                                         0.3499999940395355,
+                                                         0.3499999940395355
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0.55, 0",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.35, 0.35, 0.35"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "CoinGold",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "points":  "1",
+                                                                   "radius":  "0.65",
+                                                                   "collected":  "false"
+                                                               },
+                                                "type":  "CollectibleRuntime"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "speedYDegreesPerSecond":  "120"
+                                                               },
+                                                "type":  "SpinRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Sphere",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true",
+                                                                   "radius":  "0.5"
+                                                               }
+                                            }
+                                        ],
+                         "id":  7,
+                         "name":  "Coin B",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.550000011920929,
+                                                            0.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.3499999940395355,
+                                                         0.3499999940395355,
+                                                         0.3499999940395355
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0.55, -1.5",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.35, 0.35, 0.35"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "CoinGold",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "points":  "1",
+                                                                   "radius":  "0.65",
+                                                                   "collected":  "false"
+                                                               },
+                                                "type":  "CollectibleRuntime"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "speedYDegreesPerSecond":  "120"
+                                                               },
+                                                "type":  "SpinRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Sphere",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true",
+                                                                   "radius":  "0.5"
+                                                               }
+                                            }
+                                        ],
+                         "id":  8,
+                         "name":  "Coin C",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.550000011920929,
+                                                            -1.5
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.3499999940395355,
+                                                         0.3499999940395355,
+                                                         0.3499999940395355
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0.6, -3.25",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "1.6, 1.2, 0.25"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "GoalGreen",
+                                                                   "mesh":  "GoalGate"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "completed":  "false",
+                                                                   "radius":  "0.9",
+                                                                   "requiredScore":  "3"
+                                                               },
+                                                "type":  "GoalRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true"
+                                                               }
+                                            }
+                                        ],
+                         "id":  9,
+                         "name":  "Goal Gate",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.6000000238418579,
+                                                            -3.25
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         1.600000023841858,
+                                                         1.2000000476837158,
+                                                         0.25
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "-2.8, 0.35, 0",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.25, 0.7, 7"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "WallBlock"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               }
+                                            }
+                                        ],
+                         "id":  10,
+                         "name":  "Left Wall",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            -2.799999952316284,
+                                                            0.3499999940395355,
+                                                            0.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.25,
+                                                         0.699999988079071,
+                                                         7.0
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "2.8, 0.35, 0",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.25, 0.7, 7"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "WallBlock"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               }
+                                            }
+                                        ],
+                         "id":  11,
+                         "name":  "Right Wall",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            2.799999952316284,
+                                                            0.3499999940395355,
+                                                            0.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.25,
+                                                         0.699999988079071,
+                                                         7.0
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "-1.35, 0.35, -0.75",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.6, 0.2, 0.6"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "HazardRed",
+                                                                   "mesh":  "HazardBlock"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "radius":  "0.55",
+                                                                   "triggered":  "false"
+                                                               },
+                                                "type":  "HazardRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true"
+                                                               }
+                                            }
+                                        ],
+                         "id":  12,
+                         "name":  "Left Hazard",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            -1.350000023841858,
+                                                            0.3499999940395355,
+                                                            -0.75
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.6000000238418579,
+                                                         0.20000000298023224,
+                                                         0.6000000238418579
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "1.35, 0.35, -0.75",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.6, 0.2, 0.6"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "HazardRed",
+                                                                   "mesh":  "HazardBlock"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "radius":  "0.55",
+                                                                   "triggered":  "false"
+                                                               },
+                                                "type":  "HazardRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true"
+                                                               }
+                                            }
+                                        ],
+                         "id":  13,
+                         "name":  "Right Hazard",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            1.350000023841858,
+                                                            0.3499999940395355,
+                                                            -0.75
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.6000000238418579,
+                                                         0.20000000298023224,
+                                                         0.6000000238418579
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "-1.75, 0.35, 2.15",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.8, 0.7, 0.45"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  14,
+                         "name":  "Block Obstacle A",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            -1.75,
+                                                            0.35,
+                                                            2.15
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.8,
+                                                         0.7,
+                                                         0.45
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "1.55, 0.35, 1.25",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.85, 0.7, 0.45"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  15,
+                         "name":  "Block Obstacle B",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            1.55,
+                                                            0.35,
+                                                            1.25
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.85,
+                                                         0.7,
+                                                         0.45
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "-0.95, 0.35, 0.45",
+                                                                   "rotation":  "0, 24, 0",
+                                                                   "scale":  "0.65, 0.7, 0.5"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  16,
+                         "name":  "Block Obstacle C",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            -0.95,
+                                                            0.35,
+                                                            0.45
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            24.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.65,
+                                                         0.7,
+                                                         0.5
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0.95, 0.35, -0.35",
+                                                                   "rotation":  "0, -24, 0",
+                                                                   "scale":  "0.65, 0.7, 0.5"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  17,
+                         "name":  "Block Obstacle D",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.95,
+                                                            0.35,
+                                                            -0.35
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            -24.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.65,
+                                                         0.7,
+                                                         0.5
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "-1.85, 0.35, -1.65",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.75, 0.7, 0.45"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  18,
+                         "name":  "Block Obstacle E",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            -1.85,
+                                                            0.35,
+                                                            -1.65
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.75,
+                                                         0.7,
+                                                         0.45
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "1.85, 0.35, -2.15",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "0.75, 0.7, 0.45"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  19,
+                         "name":  "Block Obstacle F",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            1.85,
+                                                            0.35,
+                                                            -2.15
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.75,
+                                                         0.7,
+                                                         0.45
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "-1.15, 0.85, -2.85",
+                                                                   "rotation":  "0, 12, 0",
+                                                                   "scale":  "0.55, 1.7, 0.45"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  20,
+                         "name":  "Tall Block Obstacle A",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            -1.15,
+                                                            0.85,
+                                                            -2.85
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            12.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.55,
+                                                         1.7,
+                                                         0.45
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "1.35, 0.85, -3.0",
+                                                                   "rotation":  "0, -12, 0",
+                                                                   "scale":  "0.55, 1.7, 0.45"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "WallSlate",
+                                                                   "mesh":  "UnitCube"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               },
+                                                "type":  "Rigidbody3D"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "false"
+                                                               },
+                                                "type":  "Collider3D"
+                                            }
+                                        ],
+                         "id":  21,
+                         "name":  "Tall Block Obstacle B",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            1.35,
+                                                            0.85,
+                                                            -3.0
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            -12.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         0.55,
+                                                         1.7,
+                                                         0.45
+                                                     ]
+                                       }
+                     },
+                     {
+                         "components":  [
+                                            {
+                                                "properties":  {
+                                                                   "position":  "0, 0.35, -2.35",
+                                                                   "rotation":  "0, 0, 0",
+                                                                   "scale":  "1.1, 0.12, 0.12"
+                                                               },
+                                                "type":  "Transform"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "material":  "SpinnerCyan",
+                                                                   "mesh":  "SpinnerBar"
+                                                               },
+                                                "type":  "MeshRenderer"
+                                            },
+                                            {
+                                                "properties":  {
+                                                                   "speedYDegreesPerSecond":  "80"
+                                                               },
+                                                "type":  "SpinRuntime"
+                                            },
+                                            {
+                                                "type":  "Rigidbody3D",
+                                                "properties":  {
+                                                                   "bodyType":  "Static",
+                                                                   "mass":  "1",
+                                                                   "useGravity":  "false",
+                                                                   "velocity":  "0, 0, 0"
+                                                               }
+                                            },
+                                            {
+                                                "type":  "Collider3D",
+                                                "properties":  {
+                                                                   "offset":  "0, 0, 0",
+                                                                   "shape":  "Box",
+                                                                   "size":  "1, 1, 1",
+                                                                   "trigger":  "true"
+                                                               }
+                                            }
+                                        ],
+                         "id":  22,
+                         "name":  "Showcase Spinner",
+                         "parentId":  0,
+                         "transform":  {
+                                           "position":  [
+                                                            0.0,
+                                                            0.3499999940395355,
+                                                            -2.3499999046325684
+                                                        ],
+                                           "rotation":  [
+                                                            0.0,
+                                                            0.0,
+                                                            0.0
+                                                        ],
+                                           "scale":  [
+                                                         1.100000023841858,
+                                                         0.11999999731779099,
+                                                         0.11999999731779099
+                                                     ]
+                                       }
+                     }
+                 ],
+    "format":  "aine.scene",
+    "name":  "CoinDash.scene.json",
+    "version":  1
+}

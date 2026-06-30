@@ -1,0 +1,18 @@
+{
+  "enabledByDefault": false,
+  "entryPoint": "RegisterSmokeGeneratedToolPlugin",
+  "format": "aine.plugin",
+  "id": "generated.SmokeGeneratedTool",
+  "install": {
+    "target": "Library/Plugins/SmokeGeneratedTool"
+  },
+  "name": "SmokeGeneratedTool",
+  "sourceFiles": [
+    "Source/SmokeGeneratedTool.cpp"
+  ],
+  "tests": [
+    "manifest",
+    "source-exists"
+  ],
+  "version": 1
+}

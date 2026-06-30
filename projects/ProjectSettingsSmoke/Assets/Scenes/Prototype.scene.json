@@ -1,0 +1,206 @@
+{
+  "entities": [
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0.5, 0",
+            "rotation": "0, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "PrototypeGray",
+            "mesh": "UnitCube"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "angularVelocity": "0, 0, 0",
+            "awake": "true",
+            "bodyType": "Kinematic",
+            "damping": "0.02",
+            "friction": "0.55",
+            "gravityScale": "1",
+            "lockAngularX": "false",
+            "lockAngularY": "false",
+            "lockAngularZ": "false",
+            "lockX": "false",
+            "lockY": "false",
+            "lockZ": "false",
+            "mass": "1",
+            "restitution": "0.12",
+            "sleepingEnabled": "false",
+            "useGravity": "false",
+            "velocity": "0, 0, 0"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "radius": "0.5",
+            "shape": "Box",
+            "size": "1, 1, 1",
+            "trigger": "false"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 1,
+      "isStatic": false,
+      "layer": "Actors",
+      "name": "Smoke Actor",
+      "parentId": 0,
+      "tag": "Boss",
+      "transform": {
+        "position": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0, 0",
+            "rotation": "0, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "broadphase": "AABB pair pruning",
+            "collisionLayers": "Default;TransparentFX;Ignore Raycast;Water;UI;Gameplay;Environment;Player;Enemy;Physics;Actors;Projectiles",
+            "disabledLayerCollisionPairs": "Actors|Projectiles",
+            "enabled": "true",
+            "fixedDeltaSeconds": "0.0166667",
+            "gravity2D": "0, -9.81",
+            "gravity3D": "0, -9.81, 0",
+            "solverIterations": "6"
+          },
+          "type": "PhysicsSettings"
+        }
+      ],
+      "id": 2,
+      "isStatic": false,
+      "layer": "Default",
+      "name": "Physics Settings",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "active": true,
+      "components": [
+        {
+          "properties": {
+            "position": "0, 0.5, 0",
+            "rotation": "0, 0, 0",
+            "scale": "1, 1, 1"
+          },
+          "type": "Transform"
+        },
+        {
+          "properties": {
+            "material": "PrototypeGray",
+            "mesh": "UnitCube"
+          },
+          "type": "MeshRenderer"
+        },
+        {
+          "properties": {
+            "angularVelocity": "0, 0, 0",
+            "awake": "true",
+            "bodyType": "Static",
+            "damping": "0.02",
+            "friction": "0.55",
+            "gravityScale": "1",
+            "lockAngularX": "false",
+            "lockAngularY": "false",
+            "lockAngularZ": "false",
+            "lockX": "false",
+            "lockY": "false",
+            "lockZ": "false",
+            "mass": "1",
+            "restitution": "0.12",
+            "sleepingEnabled": "false",
+            "useGravity": "false",
+            "velocity": "0, 0, 0"
+          },
+          "type": "Rigidbody3D"
+        },
+        {
+          "properties": {
+            "offset": "0, 0, 0",
+            "radius": "0.5",
+            "shape": "Box",
+            "size": "1, 1, 1",
+            "trigger": "false"
+          },
+          "type": "Collider3D"
+        }
+      ],
+      "id": 3,
+      "isStatic": false,
+      "layer": "Projectiles",
+      "name": "Smoke Projectile",
+      "parentId": 0,
+      "tag": "Untagged",
+      "transform": {
+        "position": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      }
+    }
+  ],
+  "format": "aine.scene",
+  "name": "Prototype.scene.json",
+  "version": 1
+}

@@ -1,0 +1,21 @@
+{
+  "activeScene": "Assets/Scenes/Prototype.scene.json",
+  "assetDatabase": "ProjectSettings/AssetDatabase.json",
+  "assetRoot": "Assets",
+  "directories": {
+    "assetRoot": "Assets",
+    "saveDataRoot": "Saved",
+    "sceneRoot": "Assets/Scenes"
+  },
+  "enabledPlugins": [],
+  "engineVersion": "0.1.0",
+  "format": "aine.project",
+  "gameSaveRoot": "Saved",
+  "plugins": [],
+  "projectName": "Untitled AI Native Project",
+  "sceneRoot": "Assets/Scenes",
+  "scenes": [
+    "Assets/Scenes/Prototype.scene.json"
+  ],
+  "version": 1
+}

@@ -1,0 +1,17 @@
+* text=auto
+
+*.cpp text
+*.h text
+*.cs text
+*.json text
+*.md text
+*.ps1 text
+*.txt text
+*.gltf text
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.bin binary
+*.dll binary
+*.exe binary
