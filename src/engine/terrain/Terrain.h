@@ -32,12 +32,12 @@ enum class TerrainBackend {
 
 struct TerrainData {
     int version = 1;
-    TerrainBackend backend = TerrainBackend::Heightfield;
+    TerrainBackend backend = TerrainBackend::Volumetric;
     int resolution = 33;
     int chunkSize = 16;
     std::array<float, 3> size{32.0f, 6.0f, 32.0f};
     bool collisionEnabled = true;
-    bool volumeEnabled = false;
+    bool volumeEnabled = true;
     int editRevision = 0;
     int materialRevision = 0;
     std::vector<float> heights;
@@ -64,7 +64,7 @@ struct TerrainRayHit {
     std::array<float, 3> normal{0.0f, 1.0f, 0.0f};
     int entityId = 0;
     std::string entityName;
-    std::string surfaceType = "Heightfield";
+    std::string surfaceType = "Unified Terrain";
 };
 
 struct TerrainMeshVertex {
@@ -161,6 +161,8 @@ Component MakeTerrainComponent(int resolution = 33, std::array<float, 3> size = 
 bool LoadTerrainDataFromComponent(const Component& component, TerrainData* outData, std::string* error = nullptr);
 void SaveTerrainDataToComponent(const TerrainData& data, Component* component);
 void NormalizeTerrainData(TerrainData* data);
+void ResizeTerrainHeightfield(TerrainData* data, std::array<float, 3> size);
+bool ResampleTerrainHeightfield(TerrainData* data, int resolution);
 
 int TerrainSampleCount(const TerrainData& data);
 int TerrainLayerCount(const TerrainData& data);

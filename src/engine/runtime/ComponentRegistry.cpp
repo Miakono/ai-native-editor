@@ -70,6 +70,9 @@ Component MakeEnvironmentLightingComponent() {
             {
                 {"enabled", "true"},
                 {"skyboxMode", "Gradient"},
+                {"skyboxTexture", ""},
+                {"skyboxTint", "1, 1, 1, 1"},
+                {"skyboxRotation", "0"},
                 {"topColor", "0.18, 0.36, 0.64, 1"},
                 {"horizonColor", "0.58, 0.68, 0.78, 1"},
                 {"groundColor", "0.22, 0.24, 0.23, 1"},
@@ -515,6 +518,9 @@ const std::vector<ComponentDefinition>& ComponentRegistry() {
                          {
                              {"enabled", "bool", false},
                              {"skyboxMode", "string", false},
+                             {"skyboxTexture", "string", false},
+                             {"skyboxTint", "color", false},
+                             {"skyboxRotation", "float", false},
                              {"topColor", "color", false},
                              {"horizonColor", "color", false},
                              {"groundColor", "color", false},

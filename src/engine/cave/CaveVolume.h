@@ -89,6 +89,55 @@ struct TerrainVolumeMesh {
     std::vector<TerrainVolumeMeshChunk> chunks;
 };
 
+struct TerrainVolumeMeshValidationChunk {
+    int chunkIndex = 0;
+    std::array<int, 3> chunkCoord{0, 0, 0};
+    int vertexCount = 0;
+    int triangleCount = 0;
+    int invalidIndexCount = 0;
+    int nanVertexCount = 0;
+    int nanNormalCount = 0;
+    int degenerateTriangleCount = 0;
+    int openEdgeCount = 0;
+    int nonManifoldEdgeCount = 0;
+    int upwardNormalCount = 0;
+    int sideNormalCount = 0;
+    int downwardNormalCount = 0;
+    std::array<float, 3> boundsMin{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> boundsMax{0.0f, 0.0f, 0.0f};
+    std::array<int, 3> sampleMin{0, 0, 0};
+    std::array<int, 3> sampleMax{0, 0, 0};
+};
+
+struct TerrainVolumeMeshValidationResult {
+    bool valid = false;
+    int sampleCount = 0;
+    int solidSampleCount = 0;
+    int airSampleCount = 0;
+    int nearZeroSampleCount = 0;
+    int nanDensityCount = 0;
+    int vertexCount = 0;
+    int triangleCount = 0;
+    int invalidIndexCount = 0;
+    int nanVertexCount = 0;
+    int nanNormalCount = 0;
+    int degenerateTriangleCount = 0;
+    int openEdgeCount = 0;
+    int boundaryOpenEdgeCount = 0;
+    int interiorOpenEdgeCount = 0;
+    int interiorOpenEdgeTolerance = 0;
+    int nonManifoldEdgeCount = 0;
+    int nonManifoldEdgeTolerance = 0;
+    int upwardNormalCount = 0;
+    int sideNormalCount = 0;
+    int downwardNormalCount = 0;
+    int mixedSignCellCount = 0;
+    int mixedSignCellsWithoutTriangles = 0;
+    std::array<float, 3> boundsMin{0.0f, 0.0f, 0.0f};
+    std::array<float, 3> boundsMax{0.0f, 0.0f, 0.0f};
+    std::vector<TerrainVolumeMeshValidationChunk> chunks;
+};
+
 struct TerrainVolumeDirtyRegion {
     bool valid = false;
     int minX = 0;
@@ -238,6 +287,8 @@ CaveMesh BuildCaveMesh(const CaveVolumeData& data);
 CaveMeshChunk BuildCaveMeshChunk(const CaveVolumeData& data, int chunkX, int chunkY, int chunkZ);
 bool RebuildCaveMeshChunks(const CaveVolumeData& data, const std::vector<int>& chunkIndices, CaveMesh* mesh);
 bool RefreshCaveMeshChunkMaterials(const CaveVolumeData& data, const std::vector<int>& chunkIndices, CaveMesh* mesh);
+TerrainVolumeMeshValidationResult ValidateCaveMesh(const CaveVolumeData& data, const CaveMesh& mesh);
+std::string FormatCaveMeshValidation(const TerrainVolumeMeshValidationResult& validation);
 
 std::string CaveBrushModeLabel(CaveBrushMode mode);
 std::string CaveFalloffLabel(CaveFalloffCurve curve);

@@ -1,0 +1,48 @@
+Terrain mesh validation:
+    valid: true
+    vertices: 51144
+    triangles: 17048
+    open edges: 1661
+    boundary open edges: 320
+    interior open edges: 1341
+    interior open edge tolerance: 1704
+    non-manifold edges: 192
+    non-manifold edge tolerance: 340
+    degenerate triangles: 0
+    invalid indices: 0
+    NaN vertices: 0
+    NaN normals: 0
+    density samples: 40425
+    solid samples: 19821
+    air samples: 20604
+    near-zero samples: 0
+    NaN densities: 0
+    upward normals: 42071
+    side normals: 6319
+    downward normals: 2754
+    mixed-sign cells: 2548
+    mixed-sign cells without triangles: 0
+    chunk: 0,0,0 vertices=0 triangles=0 openEdges=0 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=0 side=0 down=0
+    chunk: 1,0,0 vertices=0 triangles=0 openEdges=0 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=0 side=0 down=0
+    chunk: 2,0,0 vertices=324 triangles=108 openEdges=76 nonManifold=4 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=56 side=232 down=36
+    chunk: 3,0,0 vertices=51 triangles=17 openEdges=15 nonManifold=6 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=16 side=22 down=13
+    chunk: 0,1,0 vertices=3456 triangles=1152 openEdges=96 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=3456 side=0 down=0
+    chunk: 1,1,0 vertices=3456 triangles=1152 openEdges=96 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=3456 side=0 down=0
+    chunk: 2,1,0 vertices=4308 triangles=1436 openEdges=193 nonManifold=28 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=3654 side=654 down=0
+    chunk: 3,1,0 vertices=3456 triangles=1152 openEdges=96 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=3456 side=0 down=0
+    chunk: 0,0,1 vertices=2964 triangles=988 openEdges=307 nonManifold=38 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=1967 side=997 down=0
+    chunk: 1,0,1 vertices=5052 triangles=1684 openEdges=362 nonManifold=33 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2003 side=1599 down=1450
+    chunk: 2,0,1 vertices=5193 triangles=1731 openEdges=532 nonManifold=33 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2340 side=1753 down=1100
+    chunk: 3,0,1 vertices=1950 triangles=650 openEdges=258 nonManifold=48 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=733 side=1062 down=155
+    chunk: 0,1,1 vertices=2370 triangles=790 openEdges=142 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2370 side=0 down=0
+    chunk: 1,1,1 vertices=3408 triangles=1136 openEdges=100 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=3408 side=0 down=0
+    chunk: 2,1,1 vertices=2874 triangles=958 openEdges=110 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2874 side=0 down=0
+    chunk: 3,1,1 vertices=3066 triangles=1022 openEdges=102 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=3066 side=0 down=0
+    chunk: 0,0,2 vertices=0 triangles=0 openEdges=0 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=0 side=0 down=0
+    chunk: 1,0,2 vertices=0 triangles=0 openEdges=0 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=0 side=0 down=0
+    chunk: 2,0,2 vertices=0 triangles=0 openEdges=0 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=0 side=0 down=0
+    chunk: 3,0,2 vertices=0 triangles=0 openEdges=0 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=0 side=0 down=0
+    chunk: 0,1,2 vertices=2304 triangles=768 openEdges=80 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2304 side=0 down=0
+    chunk: 1,1,2 vertices=2304 triangles=768 openEdges=80 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2304 side=0 down=0
+    chunk: 2,1,2 vertices=2304 triangles=768 openEdges=80 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2304 side=0 down=0
+    chunk: 3,1,2 vertices=2304 triangles=768 openEdges=80 nonManifold=0 degenerate=0 invalidIndices=0 nanVertices=0 nanNormals=0 up=2304 side=0 down=0

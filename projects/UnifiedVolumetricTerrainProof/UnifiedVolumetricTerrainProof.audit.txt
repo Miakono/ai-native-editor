@@ -1,4 +1,4 @@
 UnifiedVolumetricTerrainProof active render/collision audit
-- Unified Volumetric Terrain | components=Transform,Terrain | meshSource=TerrainVolumeData -> TerrainSurfaceExtractor | materialSource=TerrainMaterialField | collisionSource=TerrainVolumeData -> Terrain.VolumeSurface | terrainOwned=true | standaloneCave=false | legacyCave=false | heightfieldRenderer=false | terrainVolumeMesher=true
+- Unified Terrain | components=Transform,Terrain | meshSource=TerrainVolumeData -> TerrainSurfaceExtractor | materialSource=TerrainMaterialField | collisionSource=TerrainVolumeData -> Terrain.VolumeSurface | terrainOwned=true | standaloneCave=false | legacyCave=false | heightfieldRenderer=false | terrainVolumeMesher=true
 - Sun | components=Transform,Light | meshSource=Light | materialSource=none | collisionSource=none | terrainOwned=false | standaloneCave=false | legacyCave=false | heightfieldRenderer=false | terrainVolumeMesher=false
 - Main Camera | components=Transform,Camera | meshSource=Camera view | materialSource=none | collisionSource=none | terrainOwned=false | standaloneCave=false | legacyCave=false | heightfieldRenderer=false | terrainVolumeMesher=false

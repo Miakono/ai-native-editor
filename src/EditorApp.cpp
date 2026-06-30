@@ -370,8 +370,8 @@ void MaybePrintTerrainPerfSummary() {
                  gTerrainPerfFrame.collisionChunksRebuilt, gTerrainPerfFrame.meshUploadCount,
                  gTerrainPerfFrame.materialChunksUpdatedThisFrame, gTerrainPerfFrame.materialUploadCount,
                  gTerrainPerfFrame.terrainPaintBackend == 1
-                     ? "Heightfield"
-                     : (gTerrainPerfFrame.terrainPaintBackend == 2 ? "Volumetric" : "None"),
+                     ? "Surface Control"
+                     : (gTerrainPerfFrame.terrainPaintBackend == 2 ? "Volume" : "None"),
                  gTerrainPerfFrame.terrainPaintActive != 0 ? "true" : "false",
                  gTerrainPerfFrame.terrainPaintAffectedSamples, gTerrainPerfFrame.terrainPaintDirtyMaterialChunks,
                  gTerrainPerfFrame.terrainPaintDirtyGeometryChunks, gTerrainPerfFrame.terrainPaintApplyMs,
@@ -1382,11 +1382,15 @@ enum class SkyboxRenderMode {
     None,
     Solid,
     Gradient,
+    Custom,
 };
 
 struct EnvironmentLightingSettings {
     bool enabled = false;
     SkyboxRenderMode skyboxMode = SkyboxRenderMode::Gradient;
+    std::string skyboxTexture;
+    ImVec4 skyboxTint{1.0f, 1.0f, 1.0f, 1.0f};
+    float skyboxRotationDegrees = 0.0f;
     ImVec4 topColor{0.18f, 0.36f, 0.64f, 1.0f};
     ImVec4 horizonColor{0.58f, 0.68f, 0.78f, 1.0f};
     ImVec4 groundColor{0.22f, 0.24f, 0.23f, 1.0f};
@@ -1488,9 +1492,14 @@ bool ResolveEnvironmentLightingSettings(const EditorState& state, bool sceneView
             settings.skyboxMode = SkyboxRenderMode::None;
         } else if (mode == "solid") {
             settings.skyboxMode = SkyboxRenderMode::Solid;
+        } else if (mode == "custom") {
+            settings.skyboxMode = SkyboxRenderMode::Custom;
         } else {
             settings.skyboxMode = SkyboxRenderMode::Gradient;
         }
+        settings.skyboxTexture = ComponentPropertyValue(*environment, "skyboxTexture");
+        settings.skyboxTint = ComponentColorValue(*environment, "skyboxTint", settings.skyboxTint);
+        settings.skyboxRotationDegrees = ComponentFloatValue(*environment, "skyboxRotation", settings.skyboxRotationDegrees);
         settings.topColor = ComponentColorValue(*environment, "topColor", settings.topColor);
         settings.horizonColor = ComponentColorValue(*environment, "horizonColor", settings.horizonColor);
         settings.groundColor = ComponentColorValue(*environment, "groundColor", settings.groundColor);
@@ -1928,6 +1937,7 @@ bool DrawProceduralSkyboxBackground(const EnvironmentLightingSettings* environme
     const ImVec4 ground = BlendFogSkyColor(EnvironmentSkyColor(environment, 0.0f, ViewportBackgroundColor()), fog);
 
     glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
     glDepthMask(GL_FALSE);
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_BLEND);
@@ -2573,6 +2583,93 @@ TerrainGlTexture* GetTerrainGlTexture(const std::string& reference, const std::f
 
     texture.loaded = true;
     return &texture;
+}
+
+bool DrawCustomSkyboxImage(const EnvironmentLightingSettings* environment,
+                           const FogRenderSettings* fog,
+                           const CameraBasis* camera,
+                           const std::filesystem::path& projectRoot) {
+    if (environment == nullptr || !environment->enabled ||
+        environment->skyboxMode != SkyboxRenderMode::Custom || environment->skyboxTexture.empty()) {
+        return false;
+    }
+
+    TerrainGlTexture* texture = GetTerrainGlTexture(environment->skyboxTexture, projectRoot);
+    if (texture == nullptr || !texture->loaded || texture->id == 0 || texture->width <= 0 || texture->height <= 0) {
+        return false;
+    }
+
+    constexpr float kTwoPi = 6.28318530718f;
+    float uOffset = environment->skyboxRotationDegrees / 360.0f;
+    if (camera != nullptr) {
+        const float yaw = std::atan2(camera->forward.x, camera->forward.z);
+        uOffset += yaw / kTwoPi;
+    }
+    uOffset = std::fmod(uOffset, 1.0f);
+    if (uOffset < 0.0f) {
+        uOffset += 1.0f;
+    }
+
+    ImVec4 tint = ApplyExposure(environment->skyboxTint, environment->exposure);
+    tint = BlendFogSkyColor(tint, fog);
+    tint.w = environment->skyboxTint.w;
+
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+
+    SetGlColor(tint);
+    glBegin(GL_QUADS);
+    glTexCoord2f(uOffset, 1.0f);
+    glVertex2f(-1.0f, -1.0f);
+    glTexCoord2f(uOffset + 1.0f, 1.0f);
+    glVertex2f(1.0f, -1.0f);
+    glTexCoord2f(uOffset + 1.0f, 0.0f);
+    glVertex2f(1.0f, 1.0f);
+    glTexCoord2f(uOffset, 0.0f);
+    glVertex2f(-1.0f, 1.0f);
+    glEnd();
+
+    glPopMatrix();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glDisable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+    glDepthMask(GL_TRUE);
+    return true;
+}
+
+bool DrawSkyboxBackground(const EnvironmentLightingSettings* environment,
+                          const FogRenderSettings* fog,
+                          const CameraBasis* camera,
+                          const std::filesystem::path& projectRoot,
+                          bool* outCustomSkyboxApplied = nullptr) {
+    if (outCustomSkyboxApplied != nullptr) {
+        *outCustomSkyboxApplied = false;
+    }
+    if (environment != nullptr && environment->skyboxMode == SkyboxRenderMode::Custom &&
+        DrawCustomSkyboxImage(environment, fog, camera, projectRoot)) {
+        if (outCustomSkyboxApplied != nullptr) {
+            *outCustomSkyboxApplied = true;
+        }
+        return true;
+    }
+    return DrawProceduralSkyboxBackground(environment, fog, camera);
 }
 
 std::string ResolveSpriteTextureReference(const EditorState& state, const Component& sprite) {
@@ -4775,21 +4872,37 @@ void DrawToolbarDivider(float height) {
     ImGui::Dummy(ImVec2(ImGui::GetStyle().ItemSpacing.x, height));
 }
 
+void DrawSelectedToolButtonHighlight(ImVec4 accent, float rounding) {
+    const ImVec2 min = ImGui::GetItemRectMin();
+    const ImVec2 max = ImGui::GetItemRectMax();
+    const float scale = UiScaleFromFont();
+    const float railWidth = std::max(3.0f * scale, (max.x - min.x) * 0.030f);
+    const float lineWidth = std::max(1.4f, 1.6f * scale);
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    drawList->AddRectFilled(ImVec2(min.x + 1.0f, min.y + 1.0f),
+                            ImVec2(std::min(max.x - 1.0f, min.x + railWidth), max.y - 1.0f),
+                            ColorU32(WithAlpha(accent, 0.95f)));
+    drawList->AddRect(min, max, ColorU32(WithAlpha(MixColor(accent, BrightTextColor(), 0.18f), 0.92f)),
+                      rounding, 0, lineWidth);
+}
+
 bool DrawToolbarButton(const char* label, const char* tooltip, ImVec2 size, bool enabled = true,
                        bool selected = false) {
     const ImVec4 panel = PanelBackgroundColor();
-    const ImVec4 base = selected ? MixColor(OffsetColor(panel, 0.030f), AccentColor(), 0.120f)
+    const ImVec4 accent = AccentColor();
+    const ImVec4 base = selected ? MixColor(OffsetColor(panel, 0.050f), accent, 0.320f)
                                   : OffsetColor(panel, 0.010f);
-    const ImVec4 hover = selected ? MixColor(base, AccentColor(), 0.080f)
-                                   : MixColor(OffsetColor(panel, 0.034f), AccentColor(), 0.026f);
-    const ImVec4 active = MixColor(base, AccentColor(), 0.150f);
+    const ImVec4 hover = selected ? MixColor(base, accent, 0.180f)
+                                   : MixColor(OffsetColor(panel, 0.034f), accent, 0.026f);
+    const ImVec4 active = MixColor(base, accent, selected ? 0.420f : 0.150f);
+    const float rounding = 2.0f * UiScaleFromFont();
 
     ImGui::PushStyleColor(ImGuiCol_Button, base);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, active);
     ImGui::PushStyleColor(ImGuiCol_Text, selected ? BrightTextColor() : TextColor());
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f * UiScaleFromFont());
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, rounding);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,
                         ImVec2(ImGui::GetStyle().FramePadding.x * 0.88f,
                                ImGui::GetStyle().FramePadding.y * 0.70f));
@@ -4800,6 +4913,9 @@ bool DrawToolbarButton(const char* label, const char* tooltip, ImVec2 size, bool
     const bool pressed = ImGui::Button(label, size);
     if (!enabled) {
         ImGui::EndDisabled();
+    }
+    if (selected && enabled) {
+        DrawSelectedToolButtonHighlight(accent, rounding);
     }
     if (tooltip != nullptr && tooltip[0] != '\0' && ImGui::IsItemHovered()) {
         ImGui::SetTooltip("%s", tooltip);
@@ -4851,17 +4967,19 @@ void DrawToolbarIconGlyph(ToolbarIcon icon, ImVec2 min, ImVec2 max, ImU32 color)
 bool DrawToolbarIconButton(const char* id, ToolbarIcon icon, const char* tooltip, ImVec2 size, bool enabled = true,
                            bool selected = false) {
     const ImVec4 panel = PanelBackgroundColor();
-    const ImVec4 base = selected ? MixColor(OffsetColor(panel, 0.032f), AccentColor(), 0.130f)
+    const ImVec4 accent = AccentColor();
+    const ImVec4 base = selected ? MixColor(OffsetColor(panel, 0.050f), accent, 0.330f)
                                   : OffsetColor(panel, 0.008f);
-    const ImVec4 hover = selected ? MixColor(base, AccentColor(), 0.085f)
-                                   : MixColor(OffsetColor(panel, 0.034f), AccentColor(), 0.028f);
-    const ImVec4 active = MixColor(base, AccentColor(), 0.155f);
+    const ImVec4 hover = selected ? MixColor(base, accent, 0.185f)
+                                   : MixColor(OffsetColor(panel, 0.034f), accent, 0.028f);
+    const ImVec4 active = MixColor(base, accent, selected ? 0.420f : 0.155f);
+    const float rounding = 2.0f * UiScaleFromFont();
 
     ImGui::PushStyleColor(ImGuiCol_Button, base);
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hover);
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, active);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f * UiScaleFromFont());
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, rounding);
 
     if (!enabled) {
         ImGui::BeginDisabled();
@@ -4869,6 +4987,9 @@ bool DrawToolbarIconButton(const char* id, ToolbarIcon icon, const char* tooltip
     const bool pressed = ImGui::Button(id, size);
     if (!enabled) {
         ImGui::EndDisabled();
+    }
+    if (selected && enabled) {
+        DrawSelectedToolButtonHighlight(accent, rounding);
     }
 
     const ImVec4 iconColor = enabled ? (selected ? BrightTextColor() : TextColor()) : WithAlpha(MutedTextColor(), 0.58f);
@@ -6723,6 +6844,72 @@ bool PickFolderWithDialog(const char* title, const std::filesystem::path& initia
     (void)initialPath;
     if (error != nullptr) {
         *error = "Folder picking is not implemented on this platform; type the folder path manually.";
+    }
+    return false;
+#endif
+}
+
+bool PickOpenImageFileWithDialog(const char* title, const std::filesystem::path& initialPath,
+                                 std::filesystem::path* selectedPath, std::string* error) {
+    if (selectedPath == nullptr) {
+        if (error != nullptr) {
+            *error = "No selected-path output was provided.";
+        }
+        return false;
+    }
+
+#if defined(_WIN32)
+    ComApartment apartment;
+    if (FAILED(apartment.result) && apartment.result != RPC_E_CHANGED_MODE) {
+        if (error != nullptr) {
+            *error = "COM initialization failed before opening the file picker.";
+        }
+        return false;
+    }
+
+    IFileOpenDialog* dialog = nullptr;
+    HRESULT result = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&dialog));
+    if (FAILED(result) || dialog == nullptr) {
+        if (error != nullptr) {
+            *error = "Could not create the Windows file picker.";
+        }
+        return false;
+    }
+
+    DWORD options = 0;
+    if (SUCCEEDED(dialog->GetOptions(&options))) {
+        dialog->SetOptions(options | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST | FOS_PATHMUSTEXIST);
+    }
+    const COMDLG_FILTERSPEC filters[] = {
+        {L"Image files (*.png;*.jpg;*.jpeg;*.tga;*.bmp)", L"*.png;*.jpg;*.jpeg;*.tga;*.bmp"},
+        {L"All files (*.*)", L"*.*"},
+    };
+    dialog->SetFileTypes(static_cast<UINT>(sizeof(filters) / sizeof(filters[0])), filters);
+    dialog->SetFileTypeIndex(1);
+    dialog->SetTitle(Utf8ToWide(title == nullptr ? "Select image" : title).c_str());
+    SetDialogInitialFolder(dialog, initialPath);
+
+    result = dialog->Show(nullptr);
+    if (result == HRESULT_FROM_WIN32(ERROR_CANCELLED)) {
+        dialog->Release();
+        return false;
+    }
+    if (FAILED(result)) {
+        dialog->Release();
+        if (error != nullptr) {
+            *error = "The Windows file picker failed before an image was selected.";
+        }
+        return false;
+    }
+
+    const bool ok = ExtractDialogResultPath(dialog, selectedPath, error);
+    dialog->Release();
+    return ok;
+#else
+    (void)title;
+    (void)initialPath;
+    if (error != nullptr) {
+        *error = "File picking is not implemented on this platform; type the image path manually.";
     }
     return false;
 #endif
@@ -10845,11 +11032,8 @@ void EditorApp::DrawMainMenuBar() {
             }
             ImGui::EndMenu();
         }
-        if (ImGui::MenuItem("Create Terrain")) {
+        if (ImGui::MenuItem("Create Unified Terrain")) {
             CreateTerrainTemplate("GameObject menu");
-        }
-        if (ImGui::MenuItem("Create Volumetric Terrain")) {
-            CreateCaveVolumeTemplate("GameObject menu");
         }
         if (ImGui::MenuItem("Create Environment Lighting")) {
             CreateEnvironmentLightingTemplate("GameObject menu");
@@ -11020,7 +11204,7 @@ void EditorApp::DrawMainMenuBar() {
         }
         if (ImGui::BeginMenu("Terrain")) {
             Entity* selected = state_.FindEntity(state_.SelectedEntityId());
-            if (ImGui::MenuItem("Add Terrain Component", nullptr, false,
+            if (ImGui::MenuItem("Add Unified Terrain Component", nullptr, false,
                                 selected != nullptr && !HasComponentType(*selected, "Terrain"))) {
                 state_.AddComponentToEntity(selected->id, MakeTerrainComponent());
                 terrainToolActive_ = true;
@@ -11028,22 +11212,6 @@ void EditorApp::DrawMainMenuBar() {
                 sceneToolMode_ = 2;
                 ImGui::SetWindowFocus("Inspector");
                 state_.AddLog(LogLevel::Info, "Added Terrain component to " + selected->name + ".");
-            }
-            if (ImGui::MenuItem("Enable Terrain Volume", nullptr, false,
-                                selected != nullptr && HasComponentType(*selected, "Terrain"))) {
-                if (Component* terrainComponent = FindTerrainComponent(*selected)) {
-                    TerrainData terrain;
-                    if (LoadTerrainDataFromComponentCached(selected->id, *terrainComponent, &terrain)) {
-                        EnsureTerrainVolume(&terrain);
-                        SaveTerrainDataToComponent(terrain, terrainComponent);
-                    }
-                }
-                terrainToolActive_ = true;
-                caveToolActive_ = false;
-                sceneToolMode_ = 2;
-                terrainBrushMode_ = static_cast<int>(TerrainBrushMode::VolumeTunnel);
-                ImGui::SetWindowFocus("Inspector");
-                state_.AddLog(LogLevel::Info, "Enabled terrain volume editing on " + selected->name + ".");
             }
             if (ImGui::MenuItem("Open Terrain Tools")) {
                 if (selected != nullptr && FindTerrainComponent(*selected) != nullptr) {
@@ -11421,7 +11589,7 @@ void EditorApp::DrawViewportToolbar() {
     auto activateTerrainVolumeTool = [&](bool paintMode) {
         Entity* terrain = selectedHasTerrain ? selected : findFirstTerrain();
         if (terrain == nullptr) {
-            CreateCaveVolumeTemplate("Scene toolbar");
+            CreateTerrainTemplate("Scene toolbar");
             selected = state_.FindEntity(state_.SelectedEntityId());
             terrain = selected != nullptr && FindTerrainComponent(*selected) != nullptr ? selected : nullptr;
         } else {
@@ -11578,11 +11746,6 @@ void EditorApp::DrawViewportToolbar() {
                               ImVec2(Scaled(76.0f), frameHeight), state_.IsEditMode(), false)) {
             CreateTerrainTemplate("Scene toolbar");
         }
-        ImGui::SameLine(0.0f, Scaled(3.0f));
-        if (DrawToolbarButton("+ Volume", "Create an editable Terrain with embedded volume data",
-                              ImVec2(Scaled(76.0f), frameHeight), state_.IsEditMode(), false)) {
-            CreateCaveVolumeTemplate("Scene toolbar");
-        }
     }
 
     if (toolbarWidth > Scaled(760.0f)) {
@@ -11678,7 +11841,7 @@ void EditorApp::DrawSceneToolStrip() {
     auto activateTerrainVolumeTool = [&](bool paintMode) {
         Entity* terrain = selectedHasTerrain ? selected : findFirstTerrain();
         if (terrain == nullptr) {
-            CreateCaveVolumeTemplate("Scene toolbar");
+            CreateTerrainTemplate("Scene toolbar");
             selected = state_.FindEntity(state_.SelectedEntityId());
             terrain = selected != nullptr && FindTerrainComponent(*selected) != nullptr ? selected : nullptr;
         } else {
@@ -11745,11 +11908,6 @@ void EditorApp::DrawSceneToolStrip() {
     if (DrawToolbarButton("+ Terrain", "Create a neutral default Terrain", ImVec2(-1.0f, Scaled(30.0f)),
                           state_.IsEditMode(), false)) {
         CreateTerrainTemplate("Scene toolbar");
-    }
-    if (DrawToolbarButton("+ Volume", "Create an editable Terrain with embedded volume data",
-                          ImVec2(-1.0f, Scaled(30.0f)),
-                          state_.IsEditMode(), false)) {
-        CreateCaveVolumeTemplate("Scene toolbar");
     }
     ImGui::PopStyleVar();
 }
@@ -11995,11 +12153,7 @@ bool EditorApp::HandleTerrainViewportInput(ImVec2 viewportPos, ImVec2 viewportSi
     const TerrainBrushMode terrainMode = static_cast<TerrainBrushMode>(
         std::clamp(terrainBrushMode_, 0, static_cast<int>(TerrainBrushMode::VolumePaint)));
     if (IsTerrainVolumeBrushMode(terrainBrushMode_)) {
-        if (!TerrainUsesVolumetric(data)) {
-            terrainBrushMode_ = static_cast<int>(TerrainBrushMode::RaiseLower);
-            terrainBrushPreviewHit_ = false;
-            return true;
-        }
+        EnsureTerrainVolume(&data);
         std::array<float, 3> centerLocal{};
         if (!TerrainVolumeWorldToLocal(data, *entity, hit.point, &centerLocal)) {
             return true;
@@ -12039,28 +12193,8 @@ bool EditorApp::HandleTerrainViewportInput(ImVec2 viewportPos, ImVec2 viewportSi
             volumeResult.materialOnly ? static_cast<int>(volumeResult.dirty.chunks.size()) : 0;
         gTerrainPerfFrame.terrainPaintDirtyGeometryChunks +=
             volumeResult.materialOnly ? 0 : static_cast<int>(volumeResult.dirty.chunks.size());
-        bool heightfieldOpeningChanged = false;
-        const bool openingBrush = (settings.mode == CaveBrushMode::Dig || settings.mode == CaveBrushMode::Tunnel) &&
-                                  !settings.invert && hit.surfaceType != "Volume";
-        const bool closingBrush =
-            (settings.mode == CaveBrushMode::Fill ||
-             ((settings.mode == CaveBrushMode::Dig || settings.mode == CaveBrushMode::Tunnel) && settings.invert)) &&
-            hit.surfaceType != "Volume";
-        if (volumeResult.changed && (openingBrush || closingBrush)) {
-            std::array<float, 2> uv{};
-            if (TerrainWorldToUv(data, *entity, hit.point, &uv)) {
-                TerrainBrushSettings hole;
-                hole.mode = TerrainBrushMode::Hole;
-                hole.falloff = TerrainFalloffCurve::Constant;
-                hole.radius = std::max(0.75f, settings.radius * 1.08f);
-                hole.strength = 1.0f;
-                hole.opacity = 1.0f;
-                hole.invert = closingBrush;
-                heightfieldOpeningChanged = ApplyTerrainBrush(&data, uv, hole).changed;
-            }
-        }
 
-        if (volumeResult.changed || heightfieldOpeningChanged) {
+        if (volumeResult.changed) {
             if (!StoreTerrainDataInComponentCache(entity->id, *component, data)) {
                 SaveTerrainDataToComponent(data, component);
             }
@@ -12069,11 +12203,6 @@ bool EditorApp::HandleTerrainViewportInput(ImVec2 viewportPos, ImVec2 viewportSi
             terrainBrushHasLastStamp_ = true;
         }
     } else {
-        if (!TerrainUsesHeightfield(data)) {
-            terrainBrushMode_ = static_cast<int>(TerrainBrushMode::VolumeTunnel);
-            terrainBrushPreviewHit_ = false;
-            return true;
-        }
         std::array<float, 2> uv{};
         if (!TerrainWorldToUv(data, *entity, hit.point, &uv)) {
             return true;
@@ -12483,6 +12612,7 @@ void EditorApp::RenderViewportScene(int width, int height) {
     viewportLastRenderedSpriteCount_ = 0;
     viewportLastFogApplied_ = false;
     viewportLastEnvironmentApplied_ = false;
+    viewportLastCustomSkyboxApplied_ = false;
     if (!EnsureViewportFramebuffer(width, height)) {
         return;
     }
@@ -12507,7 +12637,8 @@ void EditorApp::RenderViewportScene(int width, int height) {
     const ImVec4 viewportBackground = EnvironmentClearColor(ViewportBackgroundColor(), activeEnvironment, activeFog);
     glClearColor(viewportBackground.x, viewportBackground.y, viewportBackground.z, viewportBackground.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    DrawProceduralSkyboxBackground(activeEnvironment, activeFog, &camera);
+    DrawSkyboxBackground(activeEnvironment, activeFog, &camera, state_.ProjectRootPathString(),
+                         &viewportLastCustomSkyboxApplied_);
 
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_BLEND);
@@ -12534,11 +12665,11 @@ void EditorApp::RenderViewportScene(int width, int height) {
         if (item.kind == SceneRenderItemKind::Terrain) {
             TerrainData terrain;
             if (LoadTerrainDataFromComponentCached(entity.id, *FindTerrainComponent(entity), &terrain)) {
-                if (TerrainUsesHeightfield(terrain)) {
-                    DrawTerrainMesh(entity, terrain, item.selected, state_.ProjectRootPathString(), activeFog, camera.position);
-                } else {
+                if (TerrainUsesVolumetric(terrain)) {
                     DrawTerrainVolumeMesh(entity, terrain, item.selected, state_.ProjectRootPathString(), activeFog,
-                                          camera.position, camera.forward);
+                                          camera.position, camera.forward, false);
+                } else {
+                    DrawTerrainMesh(entity, terrain, item.selected, state_.ProjectRootPathString(), activeFog, camera.position);
                 }
                 viewportSmokeSawCubeRender_ = true;
                 if (item.selected) {
@@ -12682,6 +12813,7 @@ void EditorApp::RenderGameViewportScene(int width, int height) {
     gameLastRenderedSpriteCount_ = 0;
     gameLastFogApplied_ = false;
     gameLastEnvironmentApplied_ = false;
+    gameLastCustomSkyboxApplied_ = false;
     if (!EnsureGameFramebuffer(width, height)) {
         return;
     }
@@ -12740,7 +12872,9 @@ void EditorApp::RenderGameViewportScene(int width, int height) {
                                                         activeEnvironment, activeFog);
     glClearColor(gameBackground.x, gameBackground.y, gameBackground.z, gameBackground.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    DrawProceduralSkyboxBackground(activeEnvironment, activeFog, nullptr);
+    bool fullFrameCustomSkybox = false;
+    DrawSkyboxBackground(activeEnvironment, activeFog, nullptr, state_.ProjectRootPathString(), &fullFrameCustomSkybox);
+    gameLastCustomSkyboxApplied_ = gameLastCustomSkyboxApplied_ || fullFrameCustomSkybox;
 
     glDisable(GL_TEXTURE_2D);
     glDisable(GL_BLEND);
@@ -12764,7 +12898,9 @@ void EditorApp::RenderGameViewportScene(int width, int height) {
 
         const float aspect = static_cast<float>(pixels[2]) / static_cast<float>(std::max<GLint>(pixels[3], 1));
         const CameraBasis camera = CameraBasisFromFrame(cameraFrame);
-        DrawProceduralSkyboxBackground(activeEnvironment, activeFog, &camera);
+        bool cameraCustomSkybox = false;
+        DrawSkyboxBackground(activeEnvironment, activeFog, &camera, state_.ProjectRootPathString(), &cameraCustomSkybox);
+        gameLastCustomSkyboxApplied_ = gameLastCustomSkyboxApplied_ || cameraCustomSkybox;
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LEQUAL);
         LoadCameraProjectionMatrix(cameraFrame, aspect);
@@ -12776,11 +12912,11 @@ void EditorApp::RenderGameViewportScene(int width, int height) {
             if (item.kind == SceneRenderItemKind::Terrain) {
             TerrainData terrain;
             if (LoadTerrainDataFromComponentCached(entity.id, *FindTerrainComponent(entity), &terrain)) {
-                    if (TerrainUsesHeightfield(terrain)) {
-                    DrawTerrainMesh(entity, terrain, false, state_.ProjectRootPathString(), activeFog, camera.position);
-                } else {
+                    if (TerrainUsesVolumetric(terrain)) {
                     DrawTerrainVolumeMesh(entity, terrain, false, state_.ProjectRootPathString(), activeFog,
                                           camera.position, camera.forward, true);
+                } else {
+                    DrawTerrainMesh(entity, terrain, false, state_.ProjectRootPathString(), activeFog, camera.position);
                 }
             }
             continue;
@@ -13427,8 +13563,10 @@ void EditorApp::CreateTerrainTemplate(const char* source) {
         return;
     }
 
-    state_.PushUndoSnapshot("Create Terrain");
-    Entity& entity = state_.CreateEntity("Terrain", {MakeTransformComponent(), MakeTerrainComponent(33, {32.0f, 5.0f, 32.0f}, 16)});
+    state_.PushUndoSnapshot("Create Unified Terrain");
+    Entity& entity = state_.CreateEntity("Unified Terrain",
+                                         {MakeTransformComponent(),
+                                          MakeTerrainComponent(33, {32.0f, 5.0f, 32.0f}, 16)});
     const std::array<float, 3> position{0.0f, 0.0f, 0.0f};
     const std::array<float, 3> scale{1.0f, 1.0f, 1.0f};
     state_.SetEntityTransform(entity.id, &position, nullptr, &scale);
@@ -13438,42 +13576,12 @@ void EditorApp::CreateTerrainTemplate(const char* source) {
     sceneToolMode_ = 2;
     terrainBrushMode_ = static_cast<int>(TerrainBrushMode::RaiseLower);
     ImGui::SetWindowFocus("Inspector");
-    state_.MarkSceneDirty("Created terrain.");
-    state_.AddLog(LogLevel::Info, std::string(source) + " created Terrain.");
+    state_.MarkSceneDirty("Created unified terrain.");
+    state_.AddLog(LogLevel::Info, std::string(source) + " created Unified Terrain.");
 }
 
 void EditorApp::CreateCaveVolumeTemplate(const char* source) {
-    if (!EnsureEditModeForAction("Create volumetric terrain")) {
-        return;
-    }
-
-    TerrainData terrain;
-    terrain.resolution = 33;
-    terrain.chunkSize = 8;
-    terrain.size = {32.0f, 5.0f, 32.0f};
-    NormalizeTerrainData(&terrain);
-    EnsureTerrainVolume(&terrain);
-    terrain.volume.resolution = {33, 33, 33};
-    terrain.volume.chunkSize = 8;
-    terrain.volume.size = {32.0f, 16.0f, 32.0f};
-    terrain.volume.densities.clear();
-    EnsureTerrainVolume(&terrain);
-    Component terrainComponent = MakeTerrainComponent(33, terrain.size, terrain.chunkSize);
-    SaveTerrainDataToComponent(terrain, &terrainComponent);
-
-    state_.PushUndoSnapshot("Create Volumetric Terrain");
-    Entity& entity = state_.CreateEntity("Volumetric Terrain", {MakeTransformComponent(), terrainComponent});
-    const std::array<float, 3> position{0.0f, 0.0f, 0.0f};
-    const std::array<float, 3> scale{1.0f, 1.0f, 1.0f};
-    state_.SetEntityTransform(entity.id, &position, nullptr, &scale);
-    state_.SelectEntity(entity.id);
-    terrainToolActive_ = true;
-    caveToolActive_ = false;
-    sceneToolMode_ = 2;
-    terrainBrushMode_ = static_cast<int>(TerrainBrushMode::VolumeTunnel);
-    ImGui::SetWindowFocus("Inspector");
-    state_.MarkSceneDirty("Created volumetric terrain.");
-    state_.AddLog(LogLevel::Info, std::string(source) + " created volumetric Terrain.");
+    CreateTerrainTemplate(source);
 }
 
 void EditorApp::CreateFogEnvironmentTemplate(const char* source) {
@@ -13803,7 +13911,7 @@ int EditorApp::PickViewportTerrain(ImVec2 localMouse, ImVec2 viewportSize, Terra
                                 {rayDirection.x, rayDirection.y, rayDirection.z}, kViewportFarPlane, &hit,
                                 includeHoles) &&
             hit.distance < closest.distance) {
-            hit.surfaceType = "Heightfield";
+            hit.surfaceType = "Surface Control";
             closest = hit;
             pickedEntityId = entity.id;
         }
@@ -14844,19 +14952,14 @@ void EditorApp::DrawTerrainPanel(EditorPanelInstance& panel) {
 }
 
 void EditorApp::DrawTerrainCreateSection() {
-    if (!ImGui::CollapsingHeader("Create Terrain / Volume", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (!ImGui::CollapsingHeader("Create Unified Terrain", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
     ImGui::BeginDisabled(!state_.IsEditMode());
-    if (ImGui::Button("Create Terrain", ImVec2(Scaled(140.0f), 0.0f))) {
+    if (ImGui::Button("Create Unified Terrain", ImVec2(Scaled(196.0f), 0.0f))) {
         CreateTerrainTemplate("Terrain panel");
     }
-    AttachTooltip("Creates a heightfield Terrain GameObject for outdoor ground.");
-    ImGui::SameLine();
-    if (ImGui::Button("Create Volume", ImVec2(Scaled(120.0f), 0.0f))) {
-        CreateCaveVolumeTemplate("Terrain panel");
-    }
-    AttachTooltip("Creates a Terrain GameObject with embedded density data for tunnels, ceilings, and overhangs.");
+    AttachTooltip("Creates one Terrain GameObject with surface, volume, paint, and resize controls.");
     ImGui::SameLine();
     if (ImGui::Button("Inspector", ImVec2(Scaled(96.0f), 0.0f))) {
         ImGui::SetWindowFocus("Inspector");
@@ -14876,9 +14979,7 @@ void EditorApp::DrawTerrainInspectorBody(Component* terrainComponent) {
     }
 
     ImGui::Spacing();
-    DrawStatusBadge(TerrainBackendLabel(data.backend),
-                    TerrainUsesVolumetric(data) ? ImVec4(0.54f, 0.66f, 0.86f, 1.0f)
-                                                : ComponentAccentColor(*terrainComponent));
+    DrawStatusBadge("Unified Terrain", ImVec4(0.54f, 0.66f, 0.86f, 1.0f));
     ImGui::SameLine();
     DrawStatusBadge(("Resolution " + std::to_string(data.resolution)).c_str(), ComponentAccentColor(*terrainComponent));
     ImGui::SameLine();
@@ -14892,9 +14993,29 @@ void EditorApp::DrawTerrainInspectorBody(Component* terrainComponent) {
     }
 
     ImGui::Spacing();
-    const float buttonWidth = std::max(Scaled(66.0f),
-                                       (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 2.0f) /
-                                           3.0f);
+    const bool surfaceToolActive =
+        terrainToolActive_ && sceneToolMode_ == 2 && !IsTerrainVolumeBrushMode(terrainBrushMode_) &&
+        terrainBrushMode_ != static_cast<int>(TerrainBrushMode::Paint);
+    const bool volumeToolActive = terrainToolActive_ && sceneToolMode_ == 2 && IsTerrainVolumeBrushMode(terrainBrushMode_);
+    const bool paintToolActive =
+        terrainToolActive_ && (sceneToolMode_ == 3 || terrainBrushMode_ == static_cast<int>(TerrainBrushMode::Paint));
+    DrawSectionTitle("Active Tool");
+    DrawStatusBadge(surfaceToolActive   ? "Surface Sculpt"
+                    : volumeToolActive ? "Volume Dig"
+                    : paintToolActive  ? "Paint"
+                                       : "Select",
+                    surfaceToolActive || volumeToolActive || paintToolActive
+                        ? ImVec4(0.54f, 0.66f, 0.86f, 1.0f)
+                        : ImVec4(0.58f, 0.60f, 0.63f, 1.0f));
+    ImGui::SameLine();
+    DrawStatusBadge(("Brush " + TerrainBrushModeLabel(static_cast<TerrainBrushMode>(std::clamp(
+                                    terrainBrushMode_, 0, static_cast<int>(TerrainBrushMode::VolumePaint)))))
+                        .c_str(),
+                    ImVec4(0.60f, 0.64f, 0.64f, 1.0f));
+
+    const float buttonWidth = std::max(Scaled(68.0f),
+                                       (ImGui::GetContentRegionAvail().x - ImGui::GetStyle().ItemSpacing.x * 3.0f) /
+                                           4.0f);
     if (DrawToolbarButton("Select##terrain_inspector_tool_select", "Use normal GameObject selection",
                           ImVec2(buttonWidth, ImGui::GetFrameHeight()), true, sceneToolMode_ == 0)) {
         sceneToolMode_ = 0;
@@ -14902,18 +15023,30 @@ void EditorApp::DrawTerrainInspectorBody(Component* terrainComponent) {
         caveToolActive_ = false;
     }
     ImGui::SameLine();
-    if (DrawToolbarButton("Sculpt##terrain_inspector_tool_sculpt", "Sculpt this Terrain in the Scene view",
-                          ImVec2(buttonWidth, ImGui::GetFrameHeight()), true, sceneToolMode_ == 2)) {
+    if (DrawToolbarButton("Surface##terrain_inspector_tool_surface", "Sculpt the surface height field",
+                          ImVec2(buttonWidth, ImGui::GetFrameHeight()), true, surfaceToolActive)) {
         sceneToolMode_ = 2;
         terrainToolActive_ = true;
         caveToolActive_ = false;
-        if (terrainBrushMode_ == static_cast<int>(TerrainBrushMode::Paint)) {
+        if (terrainBrushMode_ == static_cast<int>(TerrainBrushMode::Paint) ||
+            IsTerrainVolumeBrushMode(terrainBrushMode_)) {
             terrainBrushMode_ = static_cast<int>(TerrainBrushMode::RaiseLower);
         }
     }
     ImGui::SameLine();
+    if (DrawToolbarButton("Dig##terrain_inspector_tool_dig", "Dig, fill, tunnel, smooth, or flatten terrain volume",
+                          ImVec2(buttonWidth, ImGui::GetFrameHeight()), true, volumeToolActive)) {
+        sceneToolMode_ = 2;
+        terrainToolActive_ = true;
+        caveToolActive_ = false;
+        if (!IsTerrainVolumeBrushMode(terrainBrushMode_) ||
+            terrainBrushMode_ == static_cast<int>(TerrainBrushMode::VolumePaint)) {
+            terrainBrushMode_ = static_cast<int>(TerrainBrushMode::VolumeTunnel);
+        }
+    }
+    ImGui::SameLine();
     if (DrawToolbarButton("Paint##terrain_inspector_tool_paint", "Paint this Terrain's layer weights",
-                          ImVec2(buttonWidth, ImGui::GetFrameHeight()), true, sceneToolMode_ == 3)) {
+                          ImVec2(buttonWidth, ImGui::GetFrameHeight()), true, paintToolActive)) {
         sceneToolMode_ = 3;
         terrainToolActive_ = true;
         caveToolActive_ = false;
@@ -14928,32 +15061,40 @@ void EditorApp::DrawTerrainInspectorBody(Component* terrainComponent) {
                         ? ImVec4(0.54f, 0.66f, 0.86f, 1.0f)
                         : ImVec4(0.58f, 0.60f, 0.63f, 1.0f));
 
-    if (TerrainUsesHeightfield(data)) {
-        DrawTerrainSculptSection(terrainComponent);
-        DrawTerrainPaintSection(terrainComponent);
-        DrawTerrainVolumeSection(terrainComponent);
-    } else {
-        DrawTerrainVolumeSection(terrainComponent);
-    }
     DrawTerrainSettingsSection(terrainComponent);
+    DrawTerrainSculptSection(terrainComponent);
+    DrawTerrainVolumeSection(terrainComponent);
+    DrawTerrainPaintSection(terrainComponent);
 }
 
 void EditorApp::DrawTerrainSculptSection(Component* terrainComponent) {
     (void)terrainComponent;
-    if (!ImGui::CollapsingHeader("Sculpt##terrain_sculpt_section", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (!ImGui::CollapsingHeader("Surface Sculpt / Shape##terrain_sculpt_section", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
-    const char* modes[] = {"Raise/Lower", "Flatten", "Smooth", "Set Height", "Noise", "Hole Cut/Fill"};
-    int sculptMode = terrainBrushMode_ == static_cast<int>(TerrainBrushMode::Hole)
-                         ? 5
-                         : std::clamp(terrainBrushMode_, 0, 4);
+    const bool active = terrainToolActive_ && sceneToolMode_ == 2 && !IsTerrainVolumeBrushMode(terrainBrushMode_) &&
+                        terrainBrushMode_ != static_cast<int>(TerrainBrushMode::Paint);
+    DrawStatusBadge(active ? "Surface Active" : "Surface Idle",
+                    active ? ImVec4(0.54f, 0.66f, 0.86f, 1.0f) : ImVec4(0.58f, 0.60f, 0.63f, 1.0f));
+    ImGui::SameLine();
+    if (ImGui::Button("Use Surface Sculpt", ImVec2(Scaled(158.0f), 0.0f))) {
+        terrainToolActive_ = true;
+        caveToolActive_ = false;
+        sceneToolMode_ = 2;
+        if (terrainBrushMode_ == static_cast<int>(TerrainBrushMode::Paint) ||
+            IsTerrainVolumeBrushMode(terrainBrushMode_)) {
+            terrainBrushMode_ = static_cast<int>(TerrainBrushMode::RaiseLower);
+        }
+    }
+    const char* modes[] = {"Raise/Lower", "Flatten", "Smooth", "Set Height", "Noise"};
+    int sculptMode = std::clamp(terrainBrushMode_, 0, 4);
     SetNextInlineLabeledItemWidth("Brush");
     if (ImGui::Combo("Brush", &sculptMode, modes, IM_ARRAYSIZE(modes))) {
-        terrainBrushMode_ = sculptMode == 5 ? static_cast<int>(TerrainBrushMode::Hole) : sculptMode;
+        terrainBrushMode_ = sculptMode;
         terrainToolActive_ = true;
         sceneToolMode_ = 2;
     }
-    AttachTooltip("Raise/Lower sculpts height, Flatten averages toward the clicked area, Smooth softens height changes, Set Height moves toward Target Height, Noise roughens the surface, and Hole Cut/Fill opens clean terrain holes.");
+    AttachTooltip("Raise/Lower, Flatten, Smooth, Set Height, and Noise modify the surface control field and update the unified terrain mesh.");
     const char* falloffs[] = {"Smooth", "Linear", "Constant", "Bell"};
     SetNextInlineLabeledItemWidth("Falloff");
     ImGui::Combo("Falloff", &terrainFalloff_, falloffs, IM_ARRAYSIZE(falloffs));
@@ -14963,7 +15104,7 @@ void EditorApp::DrawTerrainSculptSection(Component* terrainComponent) {
     AttachTooltip("World-space brush radius.");
     SetNextInlineLabeledItemWidth("Strength");
     ImGui::SliderFloat("Strength", &terrainBrushStrength_, 0.01f, 4.0f, "%.2f");
-    AttachTooltip("Height, paint, or hole-mask force applied by each brush stamp. Hole Cut/Fill is binary once the stamp influence is high enough.");
+    AttachTooltip("Height force applied by each surface brush stamp.");
     SetNextInlineLabeledItemWidth("Opacity");
     ImGui::SliderFloat("Opacity", &terrainBrushOpacity_, 0.01f, 1.0f, "%.2f");
     AttachTooltip("Blends each stamp with the existing terrain data.");
@@ -14974,11 +15115,12 @@ void EditorApp::DrawTerrainSculptSection(Component* terrainComponent) {
     ImGui::SliderFloat("Spacing", &terrainBrushSpacing_, 0.02f, 1.0f, "%.2f");
     AttachTooltip("Distance between brush stamps as a fraction of the radius.");
     ImGui::Checkbox("Invert Brush", &terrainBrushInvert_);
-    AttachTooltip("Reverses the current brush direction. For Hole Cut/Fill, inverted strokes fill holes. Hold Shift in the Scene view to temporarily invert it.");
+    AttachTooltip("Reverses the current brush direction. Hold Shift in the Scene view to temporarily invert it.");
 }
 
 void EditorApp::DrawTerrainVolumeSection(Component* terrainComponent) {
-    if (!ImGui::CollapsingHeader("Volumetric Terrain", ImGuiTreeNodeFlags_DefaultOpen) || terrainComponent == nullptr) {
+    if (!ImGui::CollapsingHeader("Volume Dig / Fill##terrain_volume_section", ImGuiTreeNodeFlags_DefaultOpen) ||
+        terrainComponent == nullptr) {
         return;
     }
 
@@ -14988,16 +15130,7 @@ void EditorApp::DrawTerrainVolumeSection(Component* terrainComponent) {
         return;
     }
 
-    if (!TerrainUsesVolumetric(data)) {
-        if (ImGui::Button("Convert To Volumetric Terrain")) {
-            state_.PushUndoSnapshot("Convert To Volumetric Terrain");
-            EnsureTerrainVolume(&data);
-            SaveTerrainDataToComponent(data, terrainComponent);
-            state_.MarkSceneDirty("Converted terrain to terrain-owned volumetric sculpting.");
-        }
-        AttachTooltip("Opts this Terrain into a density backend for tunnels, caves, arches, ceilings, and overhangs. Heightfield sculpting stays separate.");
-        return;
-    }
+    EnsureTerrainVolume(&data);
 
     caveSelectedLayer_ = std::clamp(caveSelectedLayer_, 0, std::max(0, CaveLayerCount(data.volume) - 1));
 
@@ -15009,7 +15142,12 @@ void EditorApp::DrawTerrainVolumeSection(Component* terrainComponent) {
     DrawStatusBadge(("Samples " + std::to_string(CaveSampleCount(data.volume))).c_str(),
                     ImVec4(0.60f, 0.64f, 0.64f, 1.0f));
 
-    const char* modes[] = {"Tunnel / Dig", "Dig", "Fill", "Smooth Volume", "Flatten Density", "Paint Cave/Rock"};
+    const bool active = terrainToolActive_ && sceneToolMode_ == 2 && IsTerrainVolumeBrushMode(terrainBrushMode_);
+    ImGui::SameLine();
+    DrawStatusBadge(active ? "Dig Active" : "Dig Idle",
+                    active ? ImVec4(0.88f, 0.70f, 0.38f, 1.0f) : ImVec4(0.58f, 0.60f, 0.63f, 1.0f));
+
+    const char* modes[] = {"Tunnel", "Dig", "Fill", "Smooth", "Flatten", "Paint Volume"};
     int volumeMode = TerrainVolumeModeIndex(terrainBrushMode_);
     SetNextInlineLabeledItemWidth("Brush");
     if (ImGui::Combo("Volume Brush", &volumeMode, modes, IM_ARRAYSIZE(modes))) {
@@ -15018,25 +15156,26 @@ void EditorApp::DrawTerrainVolumeSection(Component* terrainComponent) {
         caveToolActive_ = false;
         sceneToolMode_ = 2;
     }
-    AttachTooltip("Terrain-owned volume brushes carve tunnels, add/fill rock, smooth density, flatten toward a target density, or paint cave/rock layers.");
+    AttachTooltip("Volume brushes edit the same Terrain density field used for final rendering and collision.");
 
-    if (ImGui::Button("Volume Mode")) {
-        if (!IsTerrainVolumeBrushMode(terrainBrushMode_)) {
+    if (ImGui::Button("Use Volume Dig", ImVec2(Scaled(142.0f), 0.0f))) {
+        if (!IsTerrainVolumeBrushMode(terrainBrushMode_) ||
+            terrainBrushMode_ == static_cast<int>(TerrainBrushMode::VolumePaint)) {
             terrainBrushMode_ = static_cast<int>(TerrainBrushMode::VolumeTunnel);
         }
         terrainToolActive_ = true;
         caveToolActive_ = false;
         sceneToolMode_ = 2;
     }
-    AttachTooltip("Uses the Scene view brush on this Terrain's embedded volume.");
+    AttachTooltip("Uses the Scene view brush on this Terrain's unified volume.");
     ImGui::SameLine();
-    if (ImGui::Button("Paint Volume")) {
+    if (ImGui::Button("Paint Volume Layer", ImVec2(Scaled(158.0f), 0.0f))) {
         terrainBrushMode_ = static_cast<int>(TerrainBrushMode::VolumePaint);
         terrainToolActive_ = true;
         caveToolActive_ = false;
         sceneToolMode_ = 2;
     }
-    AttachTooltip("Paints the selected embedded cave/rock layer on terrain-owned volumetric surfaces.");
+    AttachTooltip("Paints the selected terrain material layer on volumetric surfaces.");
 
     const char* falloffs[] = {"Smooth", "Linear", "Constant", "Bell"};
     SetNextInlineLabeledItemWidth("Falloff");
@@ -15157,7 +15296,7 @@ void EditorApp::DrawTerrainVolumeSection(Component* terrainComponent) {
 }
 
 void EditorApp::DrawTerrainPaintSection(Component* terrainComponent) {
-    if (!ImGui::CollapsingHeader("Paint / Terrain Layers", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (!ImGui::CollapsingHeader("Paint / Surface Layers", ImGuiTreeNodeFlags_DefaultOpen)) {
         return;
     }
     if (terrainComponent == nullptr) {
@@ -15170,7 +15309,12 @@ void EditorApp::DrawTerrainPaintSection(Component* terrainComponent) {
     }
     terrainSelectedLayer_ = std::clamp(terrainSelectedLayer_, 0, std::max(0, TerrainLayerCount(data) - 1));
 
-    if (ImGui::Button("Paint Mode")) {
+    const bool active =
+        terrainToolActive_ && (sceneToolMode_ == 3 || terrainBrushMode_ == static_cast<int>(TerrainBrushMode::Paint));
+    DrawStatusBadge(active ? "Paint Active" : "Paint Idle",
+                    active ? ImVec4(0.40f, 0.82f, 0.42f, 1.0f) : ImVec4(0.58f, 0.60f, 0.63f, 1.0f));
+    ImGui::SameLine();
+    if (ImGui::Button("Use Paint Brush", ImVec2(Scaled(144.0f), 0.0f))) {
         terrainBrushMode_ = static_cast<int>(TerrainBrushMode::Paint);
         terrainToolActive_ = true;
         caveToolActive_ = false;
@@ -15424,7 +15568,7 @@ void EditorApp::DrawTerrainPaintSection(Component* terrainComponent) {
 }
 
 void EditorApp::DrawTerrainSettingsSection(Component* terrainComponent) {
-    if (!ImGui::CollapsingHeader("Settings", ImGuiTreeNodeFlags_DefaultOpen) || terrainComponent == nullptr) {
+    if (!ImGui::CollapsingHeader("Terrain Domain", ImGuiTreeNodeFlags_DefaultOpen) || terrainComponent == nullptr) {
         return;
     }
     TerrainData data;
@@ -15432,34 +15576,66 @@ void EditorApp::DrawTerrainSettingsSection(Component* terrainComponent) {
         return;
     }
     bool changed = false;
+    bool makeFlat = false;
     int resolution = data.resolution;
     int chunkSize = data.chunkSize;
-    std::array<float, 3> size = data.size;
+    float terrainWidth = data.size[0];
+    float terrainDepth = data.size[2];
+    float terrainHeight = data.size[1];
+    int materialResolution = data.resolution;
     bool collisionEnabled = data.collisionEnabled;
 
     ImGui::BeginDisabled(terrainBrushDragging_);
-    SetNextInlineLabeledItemWidth("Resolution");
-    changed = ImGui::DragInt("Resolution", &resolution, 1.0f, 2, 129) || changed;
-    AttachTooltip("Number of height samples per side. Higher values support finer sculpting and heavier meshes.");
+    SetNextInlineLabeledItemWidth("Terrain Width");
+    changed = ImGui::DragFloat("Terrain Width", &terrainWidth, 1.0f, 1.0f, 4096.0f, "%.1f") || changed;
+    AttachTooltip("World-space terrain width. This remaps brush/raycast coordinates without destroying height samples.");
+    SetNextInlineLabeledItemWidth("Terrain Depth");
+    changed = ImGui::DragFloat("Terrain Depth", &terrainDepth, 1.0f, 1.0f, 4096.0f, "%.1f") || changed;
+    AttachTooltip("World-space terrain depth. This does not change heightmap resolution.");
+    SetNextInlineLabeledItemWidth("Terrain Height");
+    changed = ImGui::DragFloat("Build Height", &terrainHeight, 0.5f, 0.0f, 1024.0f, "%.1f") || changed;
+    AttachTooltip("Above-surface height range used by surface controls and unified density seeding.");
+    SetNextInlineLabeledItemWidth("Surface Resolution");
+    changed = ImGui::DragInt("Surface Resolution", &resolution, 1.0f, 2, 513) || changed;
+    AttachTooltip("Number of surface control samples per side. Changing it resamples heights and paint weights.");
+    SetNextInlineLabeledItemWidth("Material Resolution");
+    changed = ImGui::DragInt("Material Resolution", &materialResolution, 1.0f, 2, 513) || changed;
+    AttachTooltip("Current terrain paint map resolution. It is shared with heightmap samples in this backend.");
     SetNextInlineLabeledItemWidth("Chunk Size");
     changed = ImGui::DragInt("Chunk Size", &chunkSize, 1.0f, 1, 64) || changed;
     AttachTooltip("Number of terrain cells per mesh chunk. Smaller chunks make brush rebuilds more localized.");
-    changed = DrawInspectorVec3Value("Size", size, 0.2f) || changed;
-    AttachTooltip("World size of the terrain volume: X and Z footprint, Y maximum height.");
     changed = ImGui::Checkbox("Collision Enabled", &collisionEnabled) || changed;
     AttachTooltip("Enables terrain collision for play mode, physics queries, and terrain raycasts.");
+    makeFlat = ImGui::Button("Create Flat Terrain", ImVec2(Scaled(164.0f), 0.0f));
+    AttachTooltip("Resets the surface control field and reseeds the unified terrain density from a flat surface.");
     ImGui::EndDisabled();
 
-    if (changed) {
-        state_.PushUndoSnapshot("Terrain Settings");
-        data.resolution = resolution;
+    if (changed || makeFlat) {
+        state_.PushUndoSnapshot(makeFlat ? "Create Flat Terrain" : "Terrain Settings");
+        const bool resolutionChanged = resolution != data.resolution || materialResolution != data.resolution;
+        const bool sizeChanged = std::fabs(terrainWidth - data.size[0]) > 0.001f ||
+                                 std::fabs(terrainDepth - data.size[2]) > 0.001f ||
+                                 std::fabs(terrainHeight - data.size[1]) > 0.001f;
+        if (resolutionChanged) {
+            ResampleTerrainHeightfield(&data, resolution != data.resolution ? resolution : materialResolution);
+        }
+        if (sizeChanged) {
+            ResizeTerrainHeightfield(&data, {terrainWidth, terrainHeight, terrainDepth});
+        }
         data.chunkSize = chunkSize;
-        data.size = size;
         data.collisionEnabled = collisionEnabled;
-        ++data.editRevision;
+        if (makeFlat) {
+            std::fill(data.heights.begin(), data.heights.end(), 0.0f);
+            std::fill(data.holes.begin(), data.holes.end(), 0u);
+            data.volume.densities.clear();
+            data.dirtyChunks = TerrainChunksForDirtyRegion(data, 0, data.resolution - 1, 0, data.resolution - 1);
+            ++data.editRevision;
+        } else if (!resolutionChanged && !sizeChanged) {
+            ++data.editRevision;
+        }
         NormalizeTerrainData(&data);
         SaveTerrainDataToComponent(data, terrainComponent);
-        state_.MarkSceneDirty("Edited terrain settings.");
+        state_.MarkSceneDirty(makeFlat ? "Created flat unified terrain." : "Edited unified terrain domain.");
     }
 }
 
@@ -15909,7 +16085,7 @@ void EditorApp::DrawLightingPanel(EditorPanelInstance& panel) {
         skyboxMode = "Gradient";
     }
     ImGui::SetNextItemWidth(-1.0f);
-    if (DrawStringCombo("Skybox Mode", skyboxMode, std::vector<const char*>{"Gradient", "Solid", "None"}, "Gradient")) {
+    if (DrawStringCombo("Skybox Mode", skyboxMode, std::vector<const char*>{"Gradient", "Solid", "Custom", "None"}, "Gradient")) {
         SetComponentPropertyForUi(*environmentComponent, "skyboxMode", skyboxMode);
         changed = true;
     }
@@ -15922,6 +16098,78 @@ void EditorApp::DrawLightingPanel(EditorPanelInstance& panel) {
             changed = true;
         }
     };
+
+    if (ToLower(skyboxMode) == "custom") {
+        static int sSkyboxTextureEntity = 0;
+        static std::array<char, 512> sSkyboxTextureInput{};
+        const std::string skyboxTexture = ComponentPropertyValue(*environmentComponent, "skyboxTexture");
+        if (sSkyboxTextureEntity != environmentEntity->id ||
+            std::string(sSkyboxTextureInput.data()) != skyboxTexture) {
+            sSkyboxTextureEntity = environmentEntity->id;
+            CopyStringToBuffer(sSkyboxTextureInput, skyboxTexture);
+        }
+
+        SetNextInlineLabeledItemWidth("Texture");
+        if (ImGui::InputText("Custom Texture", sSkyboxTextureInput.data(), sSkyboxTextureInput.size())) {
+            SetComponentPropertyForUi(*environmentComponent, "skyboxTexture", sSkyboxTextureInput.data());
+            changed = true;
+        }
+        AttachTooltip("Project-relative or absolute image path for a custom skybox background.");
+
+        if (ImGui::Button("Browse Skybox", ImVec2(Scaled(132.0f), 0.0f))) {
+            std::filesystem::path initialPath = state_.ProjectRootPathString();
+            if (!skyboxTexture.empty()) {
+                const std::filesystem::path resolved =
+                    ResolveTerrainTexturePath(skyboxTexture, state_.ProjectRootPathString());
+                if (!resolved.empty()) {
+                    initialPath = resolved.parent_path();
+                }
+            }
+            std::filesystem::path selectedPath;
+            std::string browseError;
+            if (PickOpenImageFileWithDialog("Select custom skybox image", initialPath, &selectedPath, &browseError)) {
+                const std::string reference = RelativeProjectPathString(state_.ProjectRootPathString(), selectedPath);
+                SetComponentPropertyForUi(*environmentComponent, "skyboxTexture", reference);
+                CopyStringToBuffer(sSkyboxTextureInput, reference);
+                changed = true;
+            } else if (!browseError.empty()) {
+                state_.AddLog(LogLevel::Warning, "Skybox image picker failed: " + browseError);
+            }
+        }
+        AttachTooltip("Selects a PNG, JPG, TGA, or BMP skybox image.");
+        ImGui::SameLine();
+        ImGui::BeginDisabled(skyboxTexture.empty());
+        if (ImGui::Button("Clear Skybox", ImVec2(Scaled(120.0f), 0.0f))) {
+            SetComponentPropertyForUi(*environmentComponent, "skyboxTexture", "");
+            CopyStringToBuffer(sSkyboxTextureInput, "");
+            changed = true;
+        }
+        ImGui::EndDisabled();
+
+        if (!skyboxTexture.empty()) {
+            TerrainGlTexture* texture = GetTerrainGlTexture(skyboxTexture, state_.ProjectRootPathString());
+            if (texture != nullptr && texture->loaded && texture->id != 0) {
+                ImGui::Image(static_cast<ImTextureID>(texture->id), ImVec2(Scaled(180.0f), Scaled(90.0f)),
+                             ImVec2(0.0f, 1.0f), ImVec2(1.0f, 0.0f));
+                ImGui::SameLine();
+                ImGui::TextDisabled("%dx%d", texture->width, texture->height);
+            } else {
+                ImGui::TextDisabled("Skybox texture not loaded");
+                AttachTooltip(texture == nullptr || texture->error.empty() ? "The skybox texture path could not be resolved."
+                                                                            : texture->error.c_str());
+            }
+        }
+
+        drawColorControl("Skybox Tint", "skyboxTint", ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        float skyboxRotation = ComponentFloatForUi(*environmentComponent, "skyboxRotation", 0.0f);
+        ImGui::SetNextItemWidth(-1.0f);
+        if (ImGui::DragFloat("Skybox Rotation", &skyboxRotation, 0.5f, -360.0f, 360.0f, "%.1f")) {
+            SetComponentPropertyForUi(*environmentComponent, "skyboxRotation",
+                                      FloatToCompactString(std::clamp(skyboxRotation, -360.0f, 360.0f)));
+            changed = true;
+        }
+    }
+
     drawColorControl("Top", "topColor", ImVec4(0.18f, 0.36f, 0.64f, 1.0f));
     drawColorControl("Horizon", "horizonColor", ImVec4(0.58f, 0.68f, 0.78f, 1.0f));
     drawColorControl("Ground", "groundColor", ImVec4(0.22f, 0.24f, 0.23f, 1.0f));
@@ -22378,11 +22626,18 @@ bool EditorApp::RunUnifiedTerrainProofSmokeTest() {
     if (proofMesh.chunks.empty() || proofMesh.boundsMax[1] <= proofMesh.boundsMin[1]) {
         return fail("terrain volume surface extractor produced an invalid proof mesh.");
     }
+    const TerrainVolumeMeshValidationResult proofValidation = ValidateCaveMesh(data.volume, proofMesh);
+    if (proofValidation.invalidIndexCount > 0 || proofValidation.nanVertexCount > 0 ||
+        proofValidation.nanNormalCount > 0 || proofValidation.nanDensityCount > 0 ||
+        proofValidation.degenerateTriangleCount > 0 || proofValidation.mixedSignCellsWithoutTriangles > 0 ||
+        proofValidation.sideNormalCount <= 0 || proofValidation.downwardNormalCount <= 0) {
+        return fail("terrain volume proof mesh validation failed.\n" + FormatCaveMeshValidation(proofValidation));
+    }
     if (!RebuildCaveMeshChunks(data.volume, proofDirtyChunks, &proofMesh)) {
         return fail("terrain volume dirty chunk rebuild failed for proof tunnel.");
     }
 
-    Entity& terrain = state_.CreateEntity("Unified Volumetric Terrain",
+    Entity& terrain = state_.CreateEntity("Unified Terrain",
                                           {MakeTransformComponent(),
                                            MakeTerrainComponent(data.resolution, data.size, data.chunkSize)});
     terrain.isStatic = true;
@@ -22402,7 +22657,7 @@ bool EditorApp::RunUnifiedTerrainProofSmokeTest() {
     camera.rotation = {-24.0f, 37.0f, 0.0f};
 
     state_.SelectEntity(terrain.id);
-    state_.MarkSceneDirty("Generated unified volumetric terrain proof scene.");
+    state_.MarkSceneDirty("Generated unified terrain proof scene.");
     if (!state_.SaveProject(&error)) {
         return fail("could not save proof project: " + error);
     }
@@ -22424,7 +22679,7 @@ bool EditorApp::RunUnifiedTerrainProofSmokeTest() {
         });
     };
 
-    Entity* reloadedTerrain = state_.FindEntityByName("Unified Volumetric Terrain");
+    Entity* reloadedTerrain = state_.FindEntityByName("Unified Terrain");
     Entity* reloadedCamera = state_.FindEntityByName("Main Camera");
     Entity* reloadedSun = state_.FindEntityByName("Sun");
     if (reloadedTerrain == nullptr || reloadedCamera == nullptr || reloadedSun == nullptr) {
@@ -22587,6 +22842,20 @@ bool EditorApp::RunUnifiedTerrainProofSmokeTest() {
     if (!RebuildCaveMeshChunks(reloadedData.volume, reloadedData.volume.dirtyChunks, &reloadedVolumeMesh)) {
         return fail("reloaded proof volume dirty chunk rebuild failed.");
     }
+    const TerrainVolumeMeshValidationResult reloadedValidation =
+        ValidateCaveMesh(reloadedData.volume, reloadedVolumeMesh);
+    if (reloadedValidation.invalidIndexCount > 0 || reloadedValidation.nanVertexCount > 0 ||
+        reloadedValidation.nanNormalCount > 0 || reloadedValidation.nanDensityCount > 0 ||
+        reloadedValidation.degenerateTriangleCount > 0 || reloadedValidation.mixedSignCellsWithoutTriangles > 0 ||
+        reloadedValidation.sideNormalCount <= 0 || reloadedValidation.downwardNormalCount <= 0) {
+        return fail("reloaded proof volume mesh validation failed.\n" +
+                    FormatCaveMeshValidation(reloadedValidation));
+    }
+    const std::filesystem::path validationPath = projectRoot / "UnifiedVolumetricTerrainProof.validation.txt";
+    {
+        std::ofstream validationOutput(validationPath);
+        validationOutput << FormatCaveMeshValidation(reloadedValidation);
+    }
 
     const std::filesystem::path scenePath =
         projectRoot / "Assets" / "Scenes" / "UnifiedVolumetricTerrainProof.scene.json";
@@ -22618,7 +22887,7 @@ bool EditorApp::RunUnifiedTerrainProofSmokeTest() {
     summary << "Created and reloaded UnifiedVolumetricTerrainProof.scene.json with one Terrain entity, no standalone "
             << "cave objects, densityBelow=" << reloadedBelow << ", densityAbove=" << reloadedAbove
             << ", digCenter=" << reloadedDigCenter << ", dirtyChunks=" << proofDirtyChunks.size()
-            << ", audit=" << auditPath.string();
+            << ", audit=" << auditPath.string() << ", validation=" << validationPath.string();
     if (!captures.empty()) {
         summary << ", capture=" << captures.front().path;
     }
@@ -22658,9 +22927,9 @@ bool EditorApp::RunTerrainPerformanceSmokeTest() {
         return fail("could not open UnifiedVolumetricTerrainProof project: " + error);
     }
 
-    Entity* terrain = state_.FindEntityByName("Unified Volumetric Terrain");
+    Entity* terrain = state_.FindEntityByName("Unified Terrain");
     if (terrain == nullptr) {
-        return fail("proof scene is missing Unified Volumetric Terrain.");
+        return fail("proof scene is missing Unified Terrain.");
     }
     Component* terrainComponent = FindTerrainComponent(*terrain);
     if (terrainComponent == nullptr) {
@@ -22816,13 +23085,13 @@ bool EditorApp::RunTerrainPerformanceSmokeTest() {
         heightfieldMaterialFrame.chunksMeshedThisFrame != 0 ||
         heightfieldMaterialFrame.fullTerrainRebuilds != 0) {
         restoreViewportState();
-        return fail("heightfield material paint rebuilt geometry or changed height data.");
+        return fail("surface material paint rebuilt geometry or changed height data.");
     }
     if (heightfieldMaterialFrame.materialChunksUpdatedThisFrame <= 0 ||
         heightfieldMaterialFrame.materialChunksUpdatedThisFrame >
             static_cast<int>(heightfieldPaintResult.dirty.chunks.size())) {
         restoreViewportState();
-        return fail("heightfield material paint did not refresh only affected material chunks.");
+        return fail("surface material paint did not refresh only affected material chunks.");
     }
 
     TerrainData materialPaintTerrain;
@@ -22963,13 +23232,13 @@ bool EditorApp::RunTerrainPerformanceSmokeTest() {
         audit << "cached.maxMeshUploads=" << cached.maxFrame.meshUploadCount << "\n";
         audit << "cached.maxLegacyHeightfieldSubmits=" << cached.maxFrame.legacyHeightfieldSubmitCount << "\n";
         audit << "cached.collisionUpdateMode=" << brushTerrain.volume.collisionUpdateMode << "\n";
-        audit << "heightfieldMaterial.paintMs=" << heightfieldPaintMs << "\n";
-        audit << "heightfieldMaterial.affectedSamples=" << heightfieldPaintResult.affectedSamples << "\n";
-        audit << "heightfieldMaterial.dirtyMaterialChunks=" << heightfieldPaintResult.dirty.chunks.size() << "\n";
-        audit << "heightfieldMaterial.materialChunksUpdated="
+        audit << "surfaceMaterial.paintMs=" << heightfieldPaintMs << "\n";
+        audit << "surfaceMaterial.affectedSamples=" << heightfieldPaintResult.affectedSamples << "\n";
+        audit << "surfaceMaterial.dirtyMaterialChunks=" << heightfieldPaintResult.dirty.chunks.size() << "\n";
+        audit << "surfaceMaterial.materialChunksUpdated="
               << heightfieldMaterialFrame.materialChunksUpdatedThisFrame << "\n";
-        audit << "heightfieldMaterial.geometryChunksMeshed=" << heightfieldMaterialFrame.chunksMeshedThisFrame << "\n";
-        audit << "heightfieldMaterial.fullTerrainRebuilds=" << heightfieldMaterialFrame.fullTerrainRebuilds << "\n";
+        audit << "surfaceMaterial.geometryChunksMeshed=" << heightfieldMaterialFrame.chunksMeshedThisFrame << "\n";
+        audit << "surfaceMaterial.fullTerrainRebuilds=" << heightfieldMaterialFrame.fullTerrainRebuilds << "\n";
         audit << "volumeMaterial.paintMs=" << volumePaintMs << "\n";
         audit << "volumeMaterial.affectedSamples=" << volumePaintResult.affectedSamples << "\n";
         audit << "volumeMaterial.dirtyMaterialChunks=" << volumePaintResult.dirty.chunks.size() << "\n";
@@ -22998,7 +23267,7 @@ bool EditorApp::RunTerrainPerformanceSmokeTest() {
             << ", max chunks meshed while moving camera " << cached.maxFrame.chunksMeshedThisFrame
             << ", max collision chunks " << cached.maxFrame.collisionChunksRebuilt
             << ", max mesh uploads " << cached.maxFrame.meshUploadCount
-            << ", heightfield paint " << heightfieldPaintMs << " ms/" << heightfieldPaintResult.affectedSamples
+            << ", surface paint " << heightfieldPaintMs << " ms/" << heightfieldPaintResult.affectedSamples
             << " samples/" << heightfieldPaintResult.dirty.chunks.size() << " material chunks"
             << ", volume paint " << volumePaintMs << " ms/" << volumePaintResult.affectedSamples
             << " samples/" << volumePaintResult.dirty.chunks.size() << " material chunks/"
@@ -23124,16 +23393,9 @@ bool EditorApp::RunTerrainSmokeTest() {
         return fail("painted terrain layer weights were too small after normalization.");
     }
 
-    TerrainBrushSettings cutHole;
-    cutHole.mode = TerrainBrushMode::Hole;
-    cutHole.falloff = TerrainFalloffCurve::Constant;
-    cutHole.radius = 2.2f;
-    cutHole.strength = 1.0f;
-    cutHole.opacity = 1.0f;
     const std::array<float, 2> holeUv{0.78f, 0.24f};
-    const TerrainBrushResult cutHoleResult = ApplyTerrainBrush(&data, holeUv, cutHole);
-    if (!cutHoleResult.changed || !TerrainIsHoleAtUv(data, holeUv)) {
-        return fail("hole brush did not cut a clean demo terrain opening.");
+    if (std::any_of(data.holes.begin(), data.holes.end(), [](std::uint8_t value) { return value != 0; })) {
+        return fail("surface sculpt proof unexpectedly created legacy heightfield hole masks.");
     }
 
     TerrainData heightfieldOnlyProof = data;
@@ -23141,12 +23403,84 @@ bool EditorApp::RunTerrainSmokeTest() {
     SaveTerrainDataToComponent(heightfieldOnlyProof, &heightfieldOnlyComponent);
     TerrainData reloadedHeightfieldOnly;
     if (!LoadTerrainDataFromComponent(heightfieldOnlyComponent, &reloadedHeightfieldOnly) ||
-        !TerrainUsesHeightfield(reloadedHeightfieldOnly) || TerrainUsesVolumetric(reloadedHeightfieldOnly) ||
-        TerrainHasVolume(reloadedHeightfieldOnly) ||
-        !TerrainIsHoleAtUv(reloadedHeightfieldOnly, holeUv) ||
+        !TerrainUsesHeightfield(reloadedHeightfieldOnly) || !TerrainUsesVolumetric(reloadedHeightfieldOnly) ||
+        !TerrainHasVolume(reloadedHeightfieldOnly) || TerrainIsHoleAtUv(reloadedHeightfieldOnly, holeUv) ||
         TerrainLayerWeightAtUv(reloadedHeightfieldOnly, 1, {0.50f, 0.50f}) <= 0.20f) {
-        return fail("heightfield-only sculpt/paint/hole regression proof failed before volume opt-in.");
+        return fail("unified terrain surface sculpt/paint regression proof failed before volume digging.");
     }
+
+    const std::filesystem::path heightfieldSceneRelative =
+        std::filesystem::path("Assets") / "Scenes" / "UnifiedTerrainSurfaceProof.scene.json";
+    const std::filesystem::path heightfieldAuditPath = projectRoot / "UnifiedTerrainSurfaceProof.audit.txt";
+    std::vector<AgentVisualCapture> heightfieldCaptures;
+    if (!state_.CreateScene(heightfieldSceneRelative, &error)) {
+        return fail("could not create UnifiedTerrainSurfaceProof scene: " + error);
+    }
+    state_.ClearScene();
+    Entity& heightfieldTerrain =
+        state_.CreateEntity("Unified Terrain Surface Proof",
+                            {MakeTransformComponent(),
+                             MakeTerrainComponent(heightfieldOnlyProof.resolution, heightfieldOnlyProof.size,
+                                                  heightfieldOnlyProof.chunkSize)});
+    heightfieldTerrain.isStatic = true;
+    Component* heightfieldTerrainComponent = FindTerrainComponent(heightfieldTerrain);
+    if (heightfieldTerrainComponent == nullptr) {
+        return fail("unified surface proof terrain has no Terrain component.");
+    }
+    SaveTerrainDataToComponent(heightfieldOnlyProof, heightfieldTerrainComponent);
+    Entity& heightfieldSun =
+        state_.CreateEntity("Unified Terrain Sun", {MakeTransformComponent(), MakeLightComponent("Directional")});
+    heightfieldSun.rotation = {48.0f, -35.0f, 0.0f};
+    Component heightfieldCameraComponent = MakeCameraComponent();
+    SetComponentPropertyForUi(heightfieldCameraComponent, "clearColor", "0.06, 0.075, 0.085, 1");
+    Entity& heightfieldCamera =
+        state_.CreateEntity("Main Camera", {MakeTransformComponent(), heightfieldCameraComponent});
+    heightfieldCamera.position = {-14.0f, 8.0f, 13.0f};
+    heightfieldCamera.rotation = {-32.0f, -42.0f, 0.0f};
+    state_.SelectEntity(heightfieldTerrain.id);
+    state_.MarkSceneDirty("Generated unified terrain surface proof scene.");
+    if (!state_.SaveProject(&error)) {
+        return fail("could not save UnifiedTerrainSurfaceProof scene: " + error);
+    }
+    TerrainRayHit heightfieldProofHit;
+    if (!TerrainRaycastWorld(heightfieldOnlyProof, heightfieldTerrain, {0.0f, 10.0f, 0.0f}, {0.0f, -1.0f, 0.0f},
+                             20.0f, &heightfieldProofHit) ||
+        !heightfieldProofHit.hit || heightfieldProofHit.surfaceType != "Surface Control") {
+        return fail("unified surface proof raycast did not hit the surface control field.");
+    }
+    {
+        std::ofstream heightfieldAudit(heightfieldAuditPath);
+        heightfieldAudit << "UnifiedTerrainSurfaceProof active render/collision audit\n";
+        heightfieldAudit << "scene=" << (projectRoot / heightfieldSceneRelative).string() << "\n";
+        heightfieldAudit << "entity=" << heightfieldTerrain.name << "\n";
+        heightfieldAudit << "backend=" << TerrainBackendLabel(heightfieldOnlyProof.backend) << "\n";
+        heightfieldAudit << "resolution=" << heightfieldOnlyProof.resolution << "\n";
+        heightfieldAudit << "size=" << heightfieldOnlyProof.size[0] << "," << heightfieldOnlyProof.size[1] << ","
+                         << heightfieldOnlyProof.size[2] << "\n";
+        heightfieldAudit << "heightfieldRenderer=false\n";
+        heightfieldAudit << "terrainVolumeMesher=true\n";
+        heightfieldAudit << "standaloneCave=false\n";
+        heightfieldAudit << "collisionSource=Terrain.VolumeSurface\n";
+        heightfieldAudit << "centerHeight=" << SampleTerrainLocal(heightfieldOnlyProof, 0.0f, 0.0f).height << "\n";
+        heightfieldAudit << "centerRockWeight=" << TerrainLayerWeightAtUv(heightfieldOnlyProof, 1, {0.50f, 0.50f})
+                         << "\n";
+        heightfieldAudit << "holeAtProofUv=" << (TerrainIsHoleAtUv(heightfieldOnlyProof, holeUv) ? "true" : "false")
+                         << "\n";
+        heightfieldAudit << "raycastSurface=" << heightfieldProofHit.surfaceType << "\n";
+    }
+    viewportCameraTarget_ = {0.0f, 1.0f, 0.0f};
+    viewportCameraYaw_ = -44.0f;
+    viewportCameraPitch_ = 23.0f;
+    viewportCameraDistance_ = 32.0f;
+    viewportGridVisible_ = false;
+    if (!CaptureAgentVisualSnapshot("unified terrain surface proof", "unified-terrain-surface-proof", &heightfieldCaptures) ||
+        heightfieldCaptures.empty()) {
+        return fail("unified surface proof visual capture did not produce screenshots.");
+    }
+    if (!state_.CreateScene(std::filesystem::path("Assets") / "Scenes" / "TerrainDemos.scene.json", &error)) {
+        return fail("could not create TerrainDemos scene: " + error);
+    }
+    state_.ClearScene();
 
     EnsureTerrainVolume(&data);
     data.volume.resolution = {25, 17, 25};
@@ -23215,7 +23549,7 @@ bool EditorApp::RunTerrainSmokeTest() {
         return fail("focused terrain-owned tunnel dirtied every volume chunk.");
     }
     if (data.editRevision != terrainRevisionBeforeVolumeEdit) {
-        return fail("terrain-owned volume edit invalidated the heightfield edit revision.");
+        return fail("terrain-owned volume edit invalidated the surface control edit revision.");
     }
 
     const int terrainVolumeCacheKey = -92029;
@@ -23368,8 +23702,8 @@ bool EditorApp::RunTerrainSmokeTest() {
             }
         }
     }
-    if (!TerrainIsHoleAtUv(reloadedData, holeUv)) {
-        return fail("reloaded terrain hole mask did not survive.");
+    if (TerrainIsHoleAtUv(reloadedData, holeUv)) {
+        return fail("reloaded unified terrain still contains a legacy heightfield hole mask.");
     }
 
     const TerrainSample centerSample = SampleTerrainLocal(reloadedData, 0.0f, 0.0f);
@@ -23489,11 +23823,16 @@ bool EditorApp::RunTerrainSmokeTest() {
     }
 
     std::ostringstream terrainSmokeSummary;
-    terrainSmokeSummary << "Created TerrainDemos, sculpted/painted/cut terrain, carved terrain-owned tunnel, "
+    terrainSmokeSummary << "Created UnifiedTerrainSurfaceProof and TerrainDemos, sculpted/painted unified terrain, carved terrain-owned tunnel, "
                         << "saved/reloaded, raycasted terrain volume surface/floor/ceiling/wall, collided in play "
                         << "mode, and kept volume cache partial (full=" << terrainVolumeFullRebuildProof
-                        << ", chunk=" << terrainVolumeChunkRebuildProof << ").";
+                        << ", chunk=" << terrainVolumeChunkRebuildProof << "), surfaceAudit="
+                        << heightfieldAuditPath.string();
+    if (!heightfieldCaptures.empty()) {
+        terrainSmokeSummary << ", surfaceCapture=" << heightfieldCaptures.front().path;
+    }
     state_.AddActivity("smoke.terrain", "Passed", terrainSmokeSummary.str());
+    std::fprintf(stdout, "%s\n", terrainSmokeSummary.str().c_str());
     return true;
 }
 
@@ -23960,7 +24299,34 @@ bool EditorApp::RunEnvironmentLightingSmokeTest() {
         return fail("new project did not seed EnvironmentLighting.");
     }
 
-    SetComponentPropertyForUi(*environment, "skyboxMode", "Gradient");
+    const std::filesystem::path skyboxPath = projectRoot / "Assets" / "Environment" / "SmokeSkybox.png";
+    std::error_code filesystemError;
+    std::filesystem::create_directories(skyboxPath.parent_path(), filesystemError);
+    if (filesystemError) {
+        return fail("could not create skybox asset folder: " + filesystemError.message());
+    }
+    constexpr int skyboxWidth = 128;
+    constexpr int skyboxHeight = 64;
+    std::vector<unsigned char> skyboxPixels(static_cast<size_t>(skyboxWidth * skyboxHeight * 4), 255u);
+    for (int y = 0; y < skyboxHeight; ++y) {
+        for (int x = 0; x < skyboxWidth; ++x) {
+            const float u = static_cast<float>(x) / static_cast<float>(std::max(1, skyboxWidth - 1));
+            const float v = static_cast<float>(y) / static_cast<float>(std::max(1, skyboxHeight - 1));
+            const size_t offset = static_cast<size_t>(y * skyboxWidth + x) * 4u;
+            skyboxPixels[offset + 0] = static_cast<unsigned char>(80.0f + 120.0f * v);
+            skyboxPixels[offset + 1] = static_cast<unsigned char>(50.0f + 140.0f * (1.0f - std::fabs(u - 0.5f)));
+            skyboxPixels[offset + 2] = static_cast<unsigned char>(25.0f + 210.0f * (1.0f - v));
+            skyboxPixels[offset + 3] = 255u;
+        }
+    }
+    if (!EncodeImagePngBgra(skyboxPath, skyboxWidth, skyboxHeight, skyboxPixels, &error)) {
+        return fail("could not encode custom skybox fixture: " + error);
+    }
+
+    SetComponentPropertyForUi(*environment, "skyboxMode", "Custom");
+    SetComponentPropertyForUi(*environment, "skyboxTexture", "Assets/Environment/SmokeSkybox.png");
+    SetComponentPropertyForUi(*environment, "skyboxTint", "0.92, 0.96, 1, 1");
+    SetComponentPropertyForUi(*environment, "skyboxRotation", "15");
     SetComponentPropertyForUi(*environment, "topColor", "0.10, 0.22, 0.46, 1");
     SetComponentPropertyForUi(*environment, "horizonColor", "0.66, 0.74, 0.82, 1");
     SetComponentPropertyForUi(*environment, "groundColor", "0.18, 0.20, 0.22, 1");
@@ -23986,7 +24352,8 @@ bool EditorApp::RunEnvironmentLightingSmokeTest() {
     const Component* reloadedEnvironmentComponent =
         reloadedEnvironment == nullptr ? nullptr : FindComponent(*reloadedEnvironment, "EnvironmentLighting");
     if (reloadedEnvironmentComponent == nullptr ||
-        ComponentPropertyValue(*reloadedEnvironmentComponent, "skyboxMode") != "Gradient" ||
+        ComponentPropertyValue(*reloadedEnvironmentComponent, "skyboxMode") != "Custom" ||
+        ComponentPropertyValue(*reloadedEnvironmentComponent, "skyboxTexture") != "Assets/Environment/SmokeSkybox.png" ||
         ComponentPropertyValue(*reloadedEnvironmentComponent, "ambientIntensity") != "0.72") {
         return fail("EnvironmentLighting properties did not survive save/reload.");
     }
@@ -23999,12 +24366,15 @@ bool EditorApp::RunEnvironmentLightingSmokeTest() {
     if (!viewportLastEnvironmentApplied_ || !gameLastEnvironmentApplied_) {
         return fail("environment lighting settings were not applied to both Scene and Game views.");
     }
+    if (!viewportLastCustomSkyboxApplied_ || !gameLastCustomSkyboxApplied_) {
+        return fail("custom skybox texture did not render in both Scene and Game views.");
+    }
     if (viewportLastRenderedCubeCount_ < 1 || gameLastRenderedCubeCount_ < 1) {
         return fail("environment lighting smoke scene did not render the starter cube.");
     }
 
     state_.AddActivity("smoke.environment-lighting", "Passed",
-                       "EnvironmentLighting validated, saved/reloaded, and rendered skybox settings in Scene and Game view framebuffers.");
+                       "EnvironmentLighting validated, saved/reloaded, and rendered custom skybox settings in Scene and Game view framebuffers.");
     return true;
 }
 

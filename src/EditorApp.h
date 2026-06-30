@@ -656,6 +656,8 @@ private:
     bool gameLastFogApplied_ = false;
     bool viewportLastEnvironmentApplied_ = false;
     bool gameLastEnvironmentApplied_ = false;
+    bool viewportLastCustomSkyboxApplied_ = false;
+    bool gameLastCustomSkyboxApplied_ = false;
     bool viewportFramebufferComplete_ = false;
     bool gameFramebufferComplete_ = false;
     bool viewportFramebufferErrorLogged_ = false;

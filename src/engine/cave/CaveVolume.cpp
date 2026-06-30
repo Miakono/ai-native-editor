@@ -7,6 +7,8 @@
 #include <nlohmann/json.hpp>
 #include <numeric>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace aine {
 namespace {
@@ -431,6 +433,12 @@ void AddTriangle(CaveMeshChunk* chunk, CaveMeshVertex a, CaveMeshVertex b, CaveM
     if (chunk == nullptr) {
         return;
     }
+    const Vec3 ab = ToVec3(b.position) - ToVec3(a.position);
+    const Vec3 ac = ToVec3(c.position) - ToVec3(a.position);
+    const Vec3 cross{ab.y * ac.z - ab.z * ac.y, ab.z * ac.x - ab.x * ac.z, ab.x * ac.y - ab.y * ac.x};
+    if (Length(cross) <= 0.0001f) {
+        return;
+    }
     const unsigned int base = static_cast<unsigned int>(chunk->vertices.size());
     chunk->vertices.push_back(std::move(a));
     chunk->vertices.push_back(std::move(b));
@@ -450,7 +458,7 @@ void PolygonizeTetra(const CaveVolumeData& data, const std::array<std::array<flo
     std::vector<int> solid;
     std::vector<int> empty;
     for (int index = 0; index < 4; ++index) {
-        (densities[static_cast<size_t>(index)] > 0.0f ? solid : empty).push_back(index);
+        (densities[static_cast<size_t>(index)] >= 0.0f ? solid : empty).push_back(index);
     }
     if (solid.empty() || empty.empty()) {
         return;
@@ -651,15 +659,29 @@ int CaveChunkIndex(const CaveVolumeData& data, int chunkX, int chunkY, int chunk
 std::vector<int> CaveChunksForDirtyRegion(const CaveVolumeData& data, int minX, int maxX, int minY, int maxY,
                                           int minZ, int maxZ) {
     std::vector<int> chunks;
+    if (data.resolution[0] < 2 || data.resolution[1] < 2 || data.resolution[2] < 2) {
+        return chunks;
+    }
     minX = std::clamp(minX, 0, data.resolution[0] - 1);
     maxX = std::clamp(maxX, 0, data.resolution[0] - 1);
     minY = std::clamp(minY, 0, data.resolution[1] - 1);
     maxY = std::clamp(maxY, 0, data.resolution[1] - 1);
     minZ = std::clamp(minZ, 0, data.resolution[2] - 1);
     maxZ = std::clamp(maxZ, 0, data.resolution[2] - 1);
-    for (int chunkZ = minZ / data.chunkSize; chunkZ <= maxZ / data.chunkSize; ++chunkZ) {
-        for (int chunkY = minY / data.chunkSize; chunkY <= maxY / data.chunkSize; ++chunkY) {
-            for (int chunkX = minX / data.chunkSize; chunkX <= maxX / data.chunkSize; ++chunkX) {
+    if (minX > maxX || minY > maxY || minZ > maxZ) {
+        return chunks;
+    }
+
+    const int minCellX = std::clamp(minX - 1, 0, data.resolution[0] - 2);
+    const int maxCellX = std::clamp(maxX, 0, data.resolution[0] - 2);
+    const int minCellY = std::clamp(minY - 1, 0, data.resolution[1] - 2);
+    const int maxCellY = std::clamp(maxY, 0, data.resolution[1] - 2);
+    const int minCellZ = std::clamp(minZ - 1, 0, data.resolution[2] - 2);
+    const int maxCellZ = std::clamp(maxZ, 0, data.resolution[2] - 2);
+    const int chunkSize = std::max(1, data.chunkSize);
+    for (int chunkZ = minCellZ / chunkSize; chunkZ <= maxCellZ / chunkSize; ++chunkZ) {
+        for (int chunkY = minCellY / chunkSize; chunkY <= maxCellY / chunkSize; ++chunkY) {
+            for (int chunkX = minCellX / chunkSize; chunkX <= maxCellX / chunkSize; ++chunkX) {
                 const int chunk = CaveChunkIndex(data, chunkX, chunkY, chunkZ);
                 if (chunk >= 0 && std::find(chunks.begin(), chunks.end(), chunk) == chunks.end()) {
                     chunks.push_back(chunk);
@@ -1128,6 +1150,328 @@ bool RefreshCaveMeshChunkMaterials(const CaveVolumeData& data, const std::vector
     return true;
 }
 
+TerrainVolumeMeshValidationResult ValidateCaveMesh(const CaveVolumeData& source, const CaveMesh& mesh) {
+    CaveVolumeData data = source;
+    NormalizeCaveVolumeData(&data);
+    TerrainVolumeMeshValidationResult result;
+    result.sampleCount = CaveSampleCount(data);
+    result.boundsMin = mesh.boundsMin;
+    result.boundsMax = mesh.boundsMax;
+
+    for (float density : data.densities) {
+        if (!std::isfinite(density)) {
+            ++result.nanDensityCount;
+            continue;
+        }
+        if (density > kEpsilon) {
+            ++result.solidSampleCount;
+        } else if (density < -kEpsilon) {
+            ++result.airSampleCount;
+        } else {
+            ++result.nearZeroSampleCount;
+        }
+    }
+
+    struct PointKey {
+        long long x = 0;
+        long long y = 0;
+        long long z = 0;
+        bool operator==(const PointKey& other) const {
+            return x == other.x && y == other.y && z == other.z;
+        }
+        bool operator<(const PointKey& other) const {
+            if (x != other.x) {
+                return x < other.x;
+            }
+            if (y != other.y) {
+                return y < other.y;
+            }
+            return z < other.z;
+        }
+    };
+    struct PointKeyHash {
+        size_t operator()(const PointKey& key) const {
+            size_t h = static_cast<size_t>(key.x * 73856093ll);
+            h ^= static_cast<size_t>(key.y * 19349663ll + 0x9e3779b97f4a7c15ull);
+            h ^= static_cast<size_t>(key.z * 83492791ll + (h << 6) + (h >> 2));
+            return h;
+        }
+    };
+    struct EdgeKey {
+        PointKey a;
+        PointKey b;
+        bool operator==(const EdgeKey& other) const {
+            return a == other.a && b == other.b;
+        }
+    };
+    struct EdgeKeyHash {
+        size_t operator()(const EdgeKey& key) const {
+            PointKeyHash pointHash;
+            return pointHash(key.a) ^ (pointHash(key.b) + 0x9e3779b97f4a7c15ull + (pointHash(key.a) << 6) +
+                                       (pointHash(key.a) >> 2));
+        }
+    };
+    struct CellKey {
+        int x = 0;
+        int y = 0;
+        int z = 0;
+        bool operator==(const CellKey& other) const {
+            return x == other.x && y == other.y && z == other.z;
+        }
+    };
+    struct CellKeyHash {
+        size_t operator()(const CellKey& key) const {
+            size_t h = static_cast<size_t>(key.x * 73856093);
+            h ^= static_cast<size_t>(key.y * 19349663 + 0x9e3779b9);
+            h ^= static_cast<size_t>(key.z * 83492791 + (h << 6) + (h >> 2));
+            return h;
+        }
+    };
+
+    auto makePointKey = [](std::array<float, 3> p) {
+        constexpr double scale = 1000.0;
+        return PointKey{static_cast<long long>(std::llround(static_cast<double>(p[0]) * scale)),
+                        static_cast<long long>(std::llround(static_cast<double>(p[1]) * scale)),
+                        static_cast<long long>(std::llround(static_cast<double>(p[2]) * scale))};
+    };
+    auto makeEdgeKey = [&](std::array<float, 3> a, std::array<float, 3> b) {
+        PointKey pa = makePointKey(a);
+        PointKey pb = makePointKey(b);
+        return pb < pa ? EdgeKey{pb, pa} : EdgeKey{pa, pb};
+    };
+    const float stepX = StepX(data);
+    const float stepY = StepY(data);
+    const float stepZ = StepZ(data);
+    auto cellForPoint = [&](std::array<float, 3> p) {
+        const int x = std::clamp(static_cast<int>(std::floor((p[0] + data.size[0] * 0.5f) / std::max(stepX, kEpsilon))), 0,
+                                 std::max(0, data.resolution[0] - 2));
+        const int y = std::clamp(static_cast<int>(std::floor((p[1] + data.size[1] * 0.5f) / std::max(stepY, kEpsilon))), 0,
+                                 std::max(0, data.resolution[1] - 2));
+        const int z = std::clamp(static_cast<int>(std::floor((p[2] + data.size[2] * 0.5f) / std::max(stepZ, kEpsilon))), 0,
+                                 std::max(0, data.resolution[2] - 2));
+        return CellKey{x, y, z};
+    };
+    auto boundaryEdge = [&](const EdgeKey& edge) {
+        const double invScale = 1.0 / 1000.0;
+        const std::array<double, 3> a{static_cast<double>(edge.a.x) * invScale,
+                                      static_cast<double>(edge.a.y) * invScale,
+                                      static_cast<double>(edge.a.z) * invScale};
+        const std::array<double, 3> b{static_cast<double>(edge.b.x) * invScale,
+                                      static_cast<double>(edge.b.y) * invScale,
+                                      static_cast<double>(edge.b.z) * invScale};
+        const std::array<double, 3> minBound{-static_cast<double>(data.size[0]) * 0.5,
+                                             -static_cast<double>(data.size[1]) * 0.5,
+                                             -static_cast<double>(data.size[2]) * 0.5};
+        const std::array<double, 3> maxBound{static_cast<double>(data.size[0]) * 0.5,
+                                             static_cast<double>(data.size[1]) * 0.5,
+                                             static_cast<double>(data.size[2]) * 0.5};
+        const double eps = static_cast<double>(std::max({stepX, stepY, stepZ, 0.01f})) * 0.02;
+        for (int axis = 0; axis < 3; ++axis) {
+            if (std::fabs(a[axis] - minBound[axis]) <= eps && std::fabs(b[axis] - minBound[axis]) <= eps) {
+                return true;
+            }
+            if (std::fabs(a[axis] - maxBound[axis]) <= eps && std::fabs(b[axis] - maxBound[axis]) <= eps) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    std::unordered_map<EdgeKey, int, EdgeKeyHash> globalEdges;
+    std::unordered_set<CellKey, CellKeyHash> occupiedCells;
+
+    auto markOccupiedCell = [&](CellKey cell) {
+        for (int dz = -1; dz <= 1; ++dz) {
+            for (int dy = -1; dy <= 1; ++dy) {
+                for (int dx = -1; dx <= 1; ++dx) {
+                    occupiedCells.insert(CellKey{std::clamp(cell.x + dx, 0, std::max(0, data.resolution[0] - 2)),
+                                                 std::clamp(cell.y + dy, 0, std::max(0, data.resolution[1] - 2)),
+                                                 std::clamp(cell.z + dz, 0, std::max(0, data.resolution[2] - 2))});
+                }
+            }
+        }
+    };
+    auto markOccupiedPoint = [&](std::array<float, 3> p) {
+        markOccupiedCell(cellForPoint(p));
+    };
+
+    auto accumulateEdge = [&](std::unordered_map<EdgeKey, int, EdgeKeyHash>* edges, std::array<float, 3> a,
+                              std::array<float, 3> b) {
+        if (edges == nullptr) {
+            return;
+        }
+        ++(*edges)[makeEdgeKey(a, b)];
+    };
+
+    for (const CaveMeshChunk& chunk : mesh.chunks) {
+        TerrainVolumeMeshValidationChunk chunkResult;
+        chunkResult.chunkIndex = chunk.index;
+        chunkResult.chunkCoord = {chunk.chunkX, chunk.chunkY, chunk.chunkZ};
+        chunkResult.vertexCount = static_cast<int>(chunk.vertices.size());
+        chunkResult.triangleCount = static_cast<int>(chunk.indices.size() / 3);
+        chunkResult.boundsMin = chunk.boundsMin;
+        chunkResult.boundsMax = chunk.boundsMax;
+        chunkResult.sampleMin = {chunk.sampleMinX, chunk.sampleMinY, chunk.sampleMinZ};
+        chunkResult.sampleMax = {chunk.sampleMaxX, chunk.sampleMaxY, chunk.sampleMaxZ};
+
+        std::unordered_map<EdgeKey, int, EdgeKeyHash> chunkEdges;
+        for (const CaveMeshVertex& vertex : chunk.vertices) {
+            const bool finitePosition = std::isfinite(vertex.position[0]) && std::isfinite(vertex.position[1]) &&
+                                        std::isfinite(vertex.position[2]);
+            const bool finiteNormal =
+                std::isfinite(vertex.normal[0]) && std::isfinite(vertex.normal[1]) && std::isfinite(vertex.normal[2]);
+            if (!finitePosition) {
+                ++chunkResult.nanVertexCount;
+            }
+            if (!finiteNormal) {
+                ++chunkResult.nanNormalCount;
+            } else if (vertex.normal[1] > 0.5f) {
+                ++chunkResult.upwardNormalCount;
+            } else if (vertex.normal[1] < -0.5f) {
+                ++chunkResult.downwardNormalCount;
+            } else {
+                ++chunkResult.sideNormalCount;
+            }
+        }
+        for (size_t index = 0; index < chunk.indices.size(); index += 3) {
+            if (index + 2 >= chunk.indices.size()) {
+                break;
+            }
+            const unsigned int ia = chunk.indices[index];
+            const unsigned int ib = chunk.indices[index + 1];
+            const unsigned int ic = chunk.indices[index + 2];
+            if (ia >= chunk.vertices.size() || ib >= chunk.vertices.size() || ic >= chunk.vertices.size()) {
+                ++chunkResult.invalidIndexCount;
+                continue;
+            }
+            const std::array<float, 3> a = chunk.vertices[ia].position;
+            const std::array<float, 3> b = chunk.vertices[ib].position;
+            const std::array<float, 3> c = chunk.vertices[ic].position;
+            const Vec3 ab = ToVec3(b) - ToVec3(a);
+            const Vec3 ac = ToVec3(c) - ToVec3(a);
+            const Vec3 cross{ab.y * ac.z - ab.z * ac.y, ab.z * ac.x - ab.x * ac.z, ab.x * ac.y - ab.y * ac.x};
+            if (Length(cross) <= 0.0001f) {
+                ++chunkResult.degenerateTriangleCount;
+            }
+            const std::array<float, 3> centroid{(a[0] + b[0] + c[0]) / 3.0f, (a[1] + b[1] + c[1]) / 3.0f,
+                                                (a[2] + b[2] + c[2]) / 3.0f};
+            markOccupiedPoint(a);
+            markOccupiedPoint(b);
+            markOccupiedPoint(c);
+            markOccupiedPoint(centroid);
+            accumulateEdge(&chunkEdges, a, b);
+            accumulateEdge(&chunkEdges, b, c);
+            accumulateEdge(&chunkEdges, c, a);
+            accumulateEdge(&globalEdges, a, b);
+            accumulateEdge(&globalEdges, b, c);
+            accumulateEdge(&globalEdges, c, a);
+        }
+        for (const auto& [edge, count] : chunkEdges) {
+            if (count == 1) {
+                ++chunkResult.openEdgeCount;
+            } else if (count > 2) {
+                ++chunkResult.nonManifoldEdgeCount;
+            }
+        }
+
+        result.vertexCount += chunkResult.vertexCount;
+        result.triangleCount += chunkResult.triangleCount;
+        result.invalidIndexCount += chunkResult.invalidIndexCount;
+        result.nanVertexCount += chunkResult.nanVertexCount;
+        result.nanNormalCount += chunkResult.nanNormalCount;
+        result.degenerateTriangleCount += chunkResult.degenerateTriangleCount;
+        result.upwardNormalCount += chunkResult.upwardNormalCount;
+        result.sideNormalCount += chunkResult.sideNormalCount;
+        result.downwardNormalCount += chunkResult.downwardNormalCount;
+        result.chunks.push_back(chunkResult);
+    }
+
+    for (const auto& [edge, count] : globalEdges) {
+        if (count == 1) {
+            ++result.openEdgeCount;
+            if (boundaryEdge(edge)) {
+                ++result.boundaryOpenEdgeCount;
+            } else {
+                ++result.interiorOpenEdgeCount;
+            }
+        } else if (count > 2) {
+            ++result.nonManifoldEdgeCount;
+        }
+    }
+
+    for (int z = 0; z < data.resolution[2] - 1; ++z) {
+        for (int y = 0; y < data.resolution[1] - 1; ++y) {
+            for (int x = 0; x < data.resolution[0] - 1; ++x) {
+                bool hasSolid = false;
+                bool hasAir = false;
+                for (int dz = 0; dz <= 1; ++dz) {
+                    for (int dy = 0; dy <= 1; ++dy) {
+                        for (int dx = 0; dx <= 1; ++dx) {
+                            const float density = CaveDensityAtSample(data, x + dx, y + dy, z + dz);
+                            hasSolid = hasSolid || density > kEpsilon;
+                            hasAir = hasAir || density < -kEpsilon;
+                        }
+                    }
+                }
+                if (hasSolid && hasAir) {
+                    ++result.mixedSignCellCount;
+                    if (occupiedCells.find(CellKey{x, y, z}) == occupiedCells.end()) {
+                        ++result.mixedSignCellsWithoutTriangles;
+                    }
+                }
+            }
+        }
+    }
+
+    const int degenerateTolerance = std::max(2, result.triangleCount / 1000);
+    result.interiorOpenEdgeTolerance = std::max(256, result.triangleCount / 10);
+    result.nonManifoldEdgeTolerance = std::max(64, result.triangleCount / 50);
+    result.valid = result.nanDensityCount == 0 && result.invalidIndexCount == 0 && result.nanVertexCount == 0 &&
+                   result.nanNormalCount == 0 && result.degenerateTriangleCount <= degenerateTolerance &&
+                   result.interiorOpenEdgeCount <= result.interiorOpenEdgeTolerance &&
+                   result.nonManifoldEdgeCount <= result.nonManifoldEdgeTolerance &&
+                   result.mixedSignCellsWithoutTriangles == 0;
+    return result;
+}
+
+std::string FormatCaveMeshValidation(const TerrainVolumeMeshValidationResult& validation) {
+    std::ostringstream stream;
+    stream << "Terrain mesh validation:\n";
+    stream << "    valid: " << (validation.valid ? "true" : "false") << "\n";
+    stream << "    vertices: " << validation.vertexCount << "\n";
+    stream << "    triangles: " << validation.triangleCount << "\n";
+    stream << "    open edges: " << validation.openEdgeCount << "\n";
+    stream << "    boundary open edges: " << validation.boundaryOpenEdgeCount << "\n";
+    stream << "    interior open edges: " << validation.interiorOpenEdgeCount << "\n";
+    stream << "    interior open edge tolerance: " << validation.interiorOpenEdgeTolerance << "\n";
+    stream << "    non-manifold edges: " << validation.nonManifoldEdgeCount << "\n";
+    stream << "    non-manifold edge tolerance: " << validation.nonManifoldEdgeTolerance << "\n";
+    stream << "    degenerate triangles: " << validation.degenerateTriangleCount << "\n";
+    stream << "    invalid indices: " << validation.invalidIndexCount << "\n";
+    stream << "    NaN vertices: " << validation.nanVertexCount << "\n";
+    stream << "    NaN normals: " << validation.nanNormalCount << "\n";
+    stream << "    density samples: " << validation.sampleCount << "\n";
+    stream << "    solid samples: " << validation.solidSampleCount << "\n";
+    stream << "    air samples: " << validation.airSampleCount << "\n";
+    stream << "    near-zero samples: " << validation.nearZeroSampleCount << "\n";
+    stream << "    NaN densities: " << validation.nanDensityCount << "\n";
+    stream << "    upward normals: " << validation.upwardNormalCount << "\n";
+    stream << "    side normals: " << validation.sideNormalCount << "\n";
+    stream << "    downward normals: " << validation.downwardNormalCount << "\n";
+    stream << "    mixed-sign cells: " << validation.mixedSignCellCount << "\n";
+    stream << "    mixed-sign cells without triangles: " << validation.mixedSignCellsWithoutTriangles << "\n";
+    for (const TerrainVolumeMeshValidationChunk& chunk : validation.chunks) {
+        stream << "    chunk: " << chunk.chunkCoord[0] << "," << chunk.chunkCoord[1] << "," << chunk.chunkCoord[2]
+               << " vertices=" << chunk.vertexCount << " triangles=" << chunk.triangleCount
+               << " openEdges=" << chunk.openEdgeCount << " nonManifold=" << chunk.nonManifoldEdgeCount
+               << " degenerate=" << chunk.degenerateTriangleCount << " invalidIndices=" << chunk.invalidIndexCount
+               << " nanVertices=" << chunk.nanVertexCount << " nanNormals=" << chunk.nanNormalCount
+               << " up=" << chunk.upwardNormalCount << " side=" << chunk.sideNormalCount
+               << " down=" << chunk.downwardNormalCount << "\n";
+    }
+    return stream.str();
+}
+
 TerrainVolumeMesh TerrainSurfaceExtractor::Extract(const TerrainVolumeData& data) {
     return BuildCaveMesh(data);
 }
@@ -1188,6 +1532,139 @@ bool RunCaveVolumeSelfTests(std::vector<std::string>* diagnostics) {
         return false;
     };
 
+    auto setDensityField = [](CaveVolumeData* volume, auto evaluator) {
+        if (volume == nullptr) {
+            return;
+        }
+        NormalizeCaveVolumeData(volume);
+        for (int z = 0; z < volume->resolution[2]; ++z) {
+            for (int y = 0; y < volume->resolution[1]; ++y) {
+                for (int x = 0; x < volume->resolution[0]; ++x) {
+                    const std::array<float, 3> local = SampleLocalPosition(*volume, x, y, z);
+                    volume->densities[static_cast<size_t>(CaveSampleIndex(*volume, x, y, z))] =
+                        ClampDensity(evaluator(local));
+                }
+            }
+        }
+        volume->dirtyChunks.clear();
+        const int chunkCount = CaveChunkCountX(*volume) * CaveChunkCountY(*volume) * CaveChunkCountZ(*volume);
+        for (int chunk = 0; chunk < chunkCount; ++chunk) {
+            volume->dirtyChunks.push_back(chunk);
+        }
+    };
+    auto makeFlatReferenceVolume = [&](std::array<int, 3> resolution, std::array<float, 3> size, int chunkSize) {
+        CaveVolumeData volume;
+        volume.resolution = resolution;
+        volume.size = size;
+        volume.chunkSize = chunkSize;
+        NormalizeCaveVolumeData(&volume);
+        setDensityField(&volume, [](std::array<float, 3> local) {
+            return 0.25f - local[1];
+        });
+        return volume;
+    };
+    auto validateReferenceMesh = [&](const std::string& label, const CaveVolumeData& volume, bool requireUp,
+                                     bool requireSide, bool requireDown) {
+        const CaveMesh mesh = BuildCaveMesh(volume);
+        const TerrainVolumeMeshValidationResult validation = ValidateCaveMesh(volume, mesh);
+        if (!validation.valid || validation.triangleCount <= 0) {
+            return fail("Cave selftest failed: " + label + " reference mesh validation failed.\n" +
+                        FormatCaveMeshValidation(validation));
+        }
+        if (requireUp && validation.upwardNormalCount <= 0) {
+            return fail("Cave selftest failed: " + label + " reference mesh did not produce upward normals.");
+        }
+        if (requireSide && validation.sideNormalCount <= 0) {
+            return fail("Cave selftest failed: " + label + " reference mesh did not produce side normals.");
+        }
+        if (requireDown && validation.downwardNormalCount <= 0) {
+            return fail("Cave selftest failed: " + label + " reference mesh did not produce downward normals.");
+        }
+        return true;
+    };
+
+    CaveVolumeData flatReference = makeFlatReferenceVolume({33, 17, 33}, {24.0f, 12.0f, 24.0f}, 16);
+    if (!validateReferenceMesh("flat terrain surface", flatReference, true, false, false)) {
+        return false;
+    }
+
+    CaveVolumeData sphereCavityReference = makeFlatReferenceVolume({33, 25, 33}, {24.0f, 16.0f, 24.0f}, 16);
+    setDensityField(&sphereCavityReference, [](std::array<float, 3> local) {
+        const float flat = 0.35f - local[1];
+        const Vec3 center{0.0f, -4.0f, 0.0f};
+        const float sphere = Length(ToVec3(local) - center) - 2.3f;
+        return std::min(flat, sphere);
+    });
+    if (!validateReferenceMesh("sphere cavity", sphereCavityReference, true, true, true)) {
+        return false;
+    }
+
+    CaveVolumeData tunnelReference = makeFlatReferenceVolume({33, 25, 33}, {24.0f, 16.0f, 24.0f}, 16);
+    setDensityField(&tunnelReference, [](std::array<float, 3> local) {
+        const float flat = 0.35f - local[1];
+        const float tunnel = DistancePointSegment(ToVec3(local), {-8.0f, -4.0f, 0.0f}, {8.0f, -4.0f, 0.0f}) - 1.45f;
+        return std::min(flat, tunnel);
+    });
+    if (!validateReferenceMesh("horizontal tunnel", tunnelReference, true, true, true)) {
+        return false;
+    }
+
+    CaveVolumeData verticalShaftReference = makeFlatReferenceVolume({33, 33, 33}, {24.0f, 18.0f, 24.0f}, 16);
+    setDensityField(&verticalShaftReference, [](std::array<float, 3> local) {
+        const float flat = 0.35f - local[1];
+        const float shaft =
+            DistancePointSegment(ToVec3(local), {0.0f, -7.0f, 0.0f}, {0.0f, 5.0f, 0.0f}) - 1.55f;
+        return std::min(flat, shaft);
+    });
+    if (!validateReferenceMesh("vertical shaft", verticalShaftReference, true, true, false)) {
+        return false;
+    }
+
+    CaveVolumeData overhangReference = makeFlatReferenceVolume({33, 25, 33}, {24.0f, 16.0f, 24.0f}, 32);
+    setDensityField(&overhangReference, [](std::array<float, 3> local) {
+        return 2.37f - Length(ToVec3(local) - Vec3{0.0f, 1.7f, 0.0f});
+    });
+    if (!validateReferenceMesh("solid overhang", overhangReference, true, true, true)) {
+        return false;
+    }
+
+    CaveVolumeData chunkBoundaryReference;
+    chunkBoundaryReference.resolution = {33, 25, 33};
+    chunkBoundaryReference.size = {24.0f, 16.0f, 24.0f};
+    chunkBoundaryReference.chunkSize = 16;
+    NormalizeCaveVolumeData(&chunkBoundaryReference);
+    setDensityField(&chunkBoundaryReference, [](std::array<float, 3> local) {
+        return DistancePointSegment(ToVec3(local), {-9.0f, -3.0f, 0.0f}, {9.0f, -3.0f, 0.0f}) - 1.7f;
+    });
+    if (SampleCaveLocal(chunkBoundaryReference, {0.0f, -3.0f, 0.0f}).density >= 0.0f) {
+        return fail("Cave selftest failed: chunk-boundary reference tunnel center was not empty.");
+    }
+    CaveVolumeData chunkBoundaryBrushReference = chunkBoundaryReference;
+    setDensityField(&chunkBoundaryBrushReference, [](std::array<float, 3>) {
+        return 1.0f;
+    });
+    CaveBrushSettings chunkBoundaryTunnel;
+    chunkBoundaryTunnel.mode = CaveBrushMode::Tunnel;
+    chunkBoundaryTunnel.falloff = CaveFalloffCurve::Smooth;
+    chunkBoundaryTunnel.radius = 1.7f;
+    chunkBoundaryTunnel.strength = 1.0f;
+    chunkBoundaryTunnel.opacity = 1.0f;
+    chunkBoundaryTunnel.useSegment = true;
+    chunkBoundaryTunnel.segmentStart = {-9.0f, -3.0f, 0.0f};
+    chunkBoundaryTunnel.segmentEnd = {9.0f, -3.0f, 0.0f};
+    const CaveBrushResult chunkBoundaryResult =
+        ApplyCaveBrush(&chunkBoundaryBrushReference, chunkBoundaryTunnel.segmentEnd, chunkBoundaryTunnel);
+    if (!chunkBoundaryResult.changed || chunkBoundaryResult.dirty.chunks.size() < 2) {
+        return fail("Cave selftest failed: chunk-boundary tunnel did not dirty multiple neighboring chunks.");
+    }
+    if (SampleCaveLocal(chunkBoundaryBrushReference, {-0.5f, -3.0f, 0.0f}).density >= 0.0f ||
+        SampleCaveLocal(chunkBoundaryBrushReference, {0.5f, -3.0f, 0.0f}).density >= 0.0f) {
+        return fail("Cave selftest failed: chunk-boundary brush tunnel was not continuous across the seam.");
+    }
+    if (!validateReferenceMesh("chunk-boundary tunnel", chunkBoundaryReference, true, true, true)) {
+        return false;
+    }
+
     CaveVolumeData data;
     data.resolution = {17, 13, 17};
     data.size = {16.0f, 10.0f, 16.0f};
@@ -1227,6 +1704,11 @@ bool RunCaveVolumeSelfTests(std::vector<std::string>* diagnostics) {
     }
     if (vertexCount == 0) {
         return fail("Cave selftest failed: mesh extraction produced no cave surface.");
+    }
+    const TerrainVolumeMeshValidationResult tunnelValidation = ValidateCaveMesh(data, mesh);
+    if (!tunnelValidation.valid || tunnelValidation.sideNormalCount <= 0 || tunnelValidation.downwardNormalCount <= 0) {
+        return fail("Cave selftest failed: tunnel brush mesh validation failed.\n" +
+                    FormatCaveMeshValidation(tunnelValidation));
     }
     CaveMesh partial = mesh;
     if (!RebuildCaveMeshChunks(data, tunneled.dirty.chunks, &partial)) {

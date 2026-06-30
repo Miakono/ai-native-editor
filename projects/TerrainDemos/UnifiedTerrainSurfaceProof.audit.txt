@@ -1,0 +1,14 @@
+UnifiedTerrainSurfaceProof active render/collision audit
+scene=C:\Users\Josh\Documents\Codex\2026-06-26\ai\outputs\ai-native-editor\projects\TerrainDemos\Assets\Scenes\UnifiedTerrainSurfaceProof.scene.json
+entity=Unified Terrain Surface Proof
+backend=Unified Terrain
+resolution=33
+size=40,6,40
+heightfieldRenderer=false
+terrainVolumeMesher=true
+standaloneCave=false
+collisionSource=Terrain.VolumeSurface
+centerHeight=1.79028
+centerRockWeight=0.449642
+holeAtProofUv=false
+raycastSurface=Surface Control

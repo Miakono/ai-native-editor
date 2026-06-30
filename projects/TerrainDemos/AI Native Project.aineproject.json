@@ -1,5 +1,5 @@
 {
-  "activeScene": "Assets/Scenes/Prototype.scene.json",
+  "activeScene": "Assets/Scenes/TerrainDemos.scene.json",
   "assetDatabase": "ProjectSettings/AssetDatabase.json",
   "assetRoot": "Assets",
   "buildSettings": {
@@ -175,7 +175,7 @@
   },
   "sceneRoot": "Assets/Scenes",
   "scenes": [
-    "Assets/Scenes/Prototype.scene.json"
+    "Assets/Scenes/TerrainDemos.scene.json"
   ],
   "version": 1
 }

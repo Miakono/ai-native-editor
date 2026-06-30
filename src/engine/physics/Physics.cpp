@@ -2027,7 +2027,7 @@ bool RayTerrain(PhysicsVec3 origin, PhysicsVec3 direction, float maxDistance, co
     PhysicsRayHit3D closest;
     closest.distance = maxDistance;
     TerrainRayHit terrainHit;
-    if (TerrainUsesHeightfield(terrain.terrain) &&
+    if (!TerrainUsesVolumetric(terrain.terrain) && TerrainUsesHeightfield(terrain.terrain) &&
         TerrainRaycastWorld(terrain.terrain, entity, ToArray(origin), ToArray(direction), maxDistance, &terrainHit)) {
         closest.hit = true;
         closest.entityId = terrain.entityId;
@@ -2551,12 +2551,14 @@ bool RunPhysicsSelfTests(std::vector<std::string>* diagnostics) {
                 0.15f + 0.35f * std::max(0.0f, 1.0f - std::fabs(u - 0.5f) * 2.0f);
         }
     }
+    terrainData.volume.densities.clear();
+    NormalizeTerrainData(&terrainData);
     Component terrainComponent;
     SaveTerrainDataToComponent(terrainData, &terrainComponent);
     Component terrainBall = MakeCollider3DComponent("Sphere");
     SetProperty(terrainBall, "radius", "0.35");
     std::vector<Entity> terrainWorld{
-        MakeTestEntity(40, "Heightfield Terrain", {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {terrainComponent}),
+        MakeTestEntity(40, "Unified Terrain", {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {terrainComponent}),
         MakeTestEntity(41, "Terrain Ball", {0.0f, 3.0f, 0.0f}, {1.0f, 1.0f, 1.0f},
                        {MakeRigidbody3DComponent("Dynamic"), terrainBall}),
     };
@@ -2573,13 +2575,13 @@ bool RunPhysicsSelfTests(std::vector<std::string>* diagnostics) {
     }
     ok = TestSelf(sawTerrainCollision, "Terrain collider did not emit a 3D collision event.", diagnostics) && ok;
     ok = TestSelf(terrainWorld[1].position[1] >= 0.75f && terrainWorld[1].position[1] <= 1.05f,
-                  "3D body did not settle on terrain heightfield.", diagnostics) &&
+                  "3D body did not settle on unified terrain.", diagnostics) &&
          ok;
     PhysicsRayHit3D terrainRayHit;
     ok = TestSelf(terrainPhysics.Raycast3D(terrainWorld, {2.0f, 4.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, 10.0f,
                                            &terrainRayHit) &&
-                      terrainRayHit.entityId == 40 && terrainRayHit.colliderType == "Terrain.Heightfield",
-                  "3D raycast did not hit terrain heightfield.", diagnostics) &&
+                      terrainRayHit.entityId == 40 && terrainRayHit.colliderType == "Terrain.VolumeSurface",
+                  "3D raycast did not hit unified terrain volume surface.", diagnostics) &&
          ok;
 
     TerrainData holedTerrainData = terrainData;
@@ -2593,20 +2595,22 @@ bool RunPhysicsSelfTests(std::vector<std::string>* diagnostics) {
     Component holedTerrainComponent;
     SaveTerrainDataToComponent(holedTerrainData, &holedTerrainComponent);
     std::vector<Entity> holedTerrainWorld{
-        MakeTestEntity(42, "Holed Heightfield Terrain", {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f}, {holedTerrainComponent}),
+        MakeTestEntity(42, "Legacy Hole Mask Unified Terrain", {0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 1.0f},
+                       {holedTerrainComponent}),
     };
     PhysicsWorld holedTerrainPhysics;
     PhysicsRayHit3D holedTerrainRayHit;
     const bool centerHoleHit = holedTerrainPhysics.Raycast3D(
         holedTerrainWorld, {0.0f, 4.0f, 0.0f}, {0.0f, -1.0f, 0.0f}, 10.0f, &holedTerrainRayHit);
-    ok = TestSelf(!centerHoleHit,
-                  "3D terrain raycast hit a carved terrain hole.", diagnostics) &&
+    ok = TestSelf(centerHoleHit && holedTerrainRayHit.entityId == 42 &&
+                      holedTerrainRayHit.colliderType == "Terrain.VolumeSurface",
+                  "3D terrain raycast did not use unified volume collision over a legacy hole mask.", diagnostics) &&
          ok;
     ok = TestSelf(holedTerrainPhysics.Raycast3D(holedTerrainWorld, {3.0f, 4.0f, 0.0f}, {0.0f, -1.0f, 0.0f},
                                                 10.0f, &holedTerrainRayHit) &&
                       holedTerrainRayHit.entityId == 42 &&
-                      holedTerrainRayHit.colliderType == "Terrain.Heightfield",
-                  "3D terrain raycast did not hit solid terrain beside a carved hole.", diagnostics) &&
+                      holedTerrainRayHit.colliderType == "Terrain.VolumeSurface",
+                  "3D terrain raycast did not hit unified terrain beside a legacy hole mask.", diagnostics) &&
          ok;
 
     TerrainData volumeTerrainData = terrainData;

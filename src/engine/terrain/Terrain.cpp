@@ -16,7 +16,7 @@ using json = nlohmann::json;
 
 constexpr int kTerrainSerializationVersion = 4;
 constexpr int kMinTerrainResolution = 2;
-constexpr int kMaxTerrainResolution = 257;
+constexpr int kMaxTerrainResolution = 513;
 constexpr float kEpsilon = 0.00001f;
 
 struct Vec3 {
@@ -447,8 +447,187 @@ std::array<float, 3> DefaultTerrainVolumeSize(const TerrainData& data) {
     return {std::max(0.1f, data.size[0]), std::max(6.0f, data.size[1]), std::max(0.1f, data.size[2])};
 }
 
+TerrainVolumeLayer TerrainVolumeLayerFromSurfaceLayer(const TerrainLayer& layer) {
+    TerrainVolumeLayer volumeLayer;
+    volumeLayer.name = layer.name.empty() ? "Terrain Layer" : layer.name;
+    volumeLayer.displayColor = layer.displayColor;
+    volumeLayer.material = layer.material.empty() ? volumeLayer.name : layer.material;
+    volumeLayer.albedoTexture = layer.albedoTexture;
+    volumeLayer.tiling = layer.tiling;
+    volumeLayer.roughness = layer.roughness;
+    volumeLayer.metalness = layer.metalness;
+    return volumeLayer;
+}
+
+std::vector<TerrainVolumeLayer> TerrainVolumeLayersFromSurfaceLayers(const TerrainData& data) {
+    std::vector<TerrainVolumeLayer> layers;
+    layers.reserve(data.layers.size());
+    for (const TerrainLayer& layer : data.layers) {
+        layers.push_back(TerrainVolumeLayerFromSurfaceLayer(layer));
+    }
+    if (layers.empty()) {
+        TerrainVolumeLayer layer;
+        layer.name = "Default";
+        layer.displayColor = {0.46f, 0.47f, 0.46f, 1.0f};
+        layer.material = "TerrainDefault";
+        layers.push_back(layer);
+    }
+    return layers;
+}
+
+void EnsureTerrainVolumeStorage(TerrainData* data) {
+    if (data == nullptr) {
+        return;
+    }
+    data->backend = TerrainBackend::Volumetric;
+    data->volumeEnabled = true;
+    if (data->volume.resolution[0] <= 0 || data->volume.resolution[1] <= 0 || data->volume.resolution[2] <= 0) {
+        data->volume.resolution = {25, 17, 25};
+    }
+    if (data->volume.chunkSize <= 0) {
+        data->volume.chunkSize = 8;
+    }
+    const std::array<float, 3> defaultSize = DefaultTerrainVolumeSize(*data);
+    data->volume.size[0] = defaultSize[0];
+    data->volume.size[1] = std::max(defaultSize[1], std::isfinite(data->volume.size[1]) ? data->volume.size[1] : defaultSize[1]);
+    data->volume.size[2] = defaultSize[2];
+    data->volume.collisionEnabled = data->collisionEnabled;
+    if (data->volume.collisionUpdateMode.empty()) {
+        data->volume.collisionUpdateMode = "Deferred";
+    }
+    if (data->volume.layers.empty()) {
+        data->volume.layers = TerrainVolumeLayersFromSurfaceLayers(*data);
+    }
+}
+
+float TerrainVolumeStepX(const TerrainVolumeData& volume) {
+    return volume.resolution[0] <= 1 ? 1.0f : volume.size[0] / static_cast<float>(volume.resolution[0] - 1);
+}
+
+float TerrainVolumeStepY(const TerrainVolumeData& volume) {
+    return volume.resolution[1] <= 1 ? 1.0f : volume.size[1] / static_cast<float>(volume.resolution[1] - 1);
+}
+
+float TerrainVolumeStepZ(const TerrainVolumeData& volume) {
+    return volume.resolution[2] <= 1 ? 1.0f : volume.size[2] / static_cast<float>(volume.resolution[2] - 1);
+}
+
+std::array<float, 3> TerrainVolumeSampleLocalPosition(const TerrainVolumeData& volume, int x, int y, int z) {
+    return {-volume.size[0] * 0.5f + static_cast<float>(x) * TerrainVolumeStepX(volume),
+            -volume.size[1] * 0.5f + static_cast<float>(y) * TerrainVolumeStepY(volume),
+            -volume.size[2] * 0.5f + static_cast<float>(z) * TerrainVolumeStepZ(volume)};
+}
+
+float TerrainBaseDensityAtLocal(const TerrainData& data, std::array<float, 3> local) {
+    const TerrainVolumeData& volume = data.volume;
+    const TerrainSample surface = SampleTerrainLocal(data, local[0], local[2]);
+    const float surfaceHeight = surface.valid ? surface.height : 0.0f;
+    const float densityScale =
+        std::max(0.05f, std::min({TerrainVolumeStepX(volume), TerrainVolumeStepY(volume), TerrainVolumeStepZ(volume)}));
+    float density = (surfaceHeight - local[1]) / densityScale;
+    if (std::fabs(density) <= 0.05f) {
+        density = density < 0.0f ? -0.05f : 0.05f;
+    }
+    return std::clamp(std::isfinite(density) ? density : 1.0f, -1.0f, 1.0f);
+}
+
+std::array<int, 4> TerrainSurfaceDirtyToVolumeXZ(const TerrainData& data, int minX, int maxX, int minZ, int maxZ) {
+    const TerrainVolumeData& volume = data.volume;
+    const float surfaceDenom = static_cast<float>(std::max(1, data.resolution - 1));
+    const float volumeXDenom = static_cast<float>(std::max(1, volume.resolution[0] - 1));
+    const float volumeZDenom = static_cast<float>(std::max(1, volume.resolution[2] - 1));
+    const float minU = static_cast<float>(std::clamp(minX, 0, data.resolution - 1)) / surfaceDenom;
+    const float maxU = static_cast<float>(std::clamp(maxX, 0, data.resolution - 1)) / surfaceDenom;
+    const float minV = static_cast<float>(std::clamp(minZ, 0, data.resolution - 1)) / surfaceDenom;
+    const float maxV = static_cast<float>(std::clamp(maxZ, 0, data.resolution - 1)) / surfaceDenom;
+    return {std::clamp(static_cast<int>(std::floor(minU * volumeXDenom)) - 1, 0, volume.resolution[0] - 1),
+            std::clamp(static_cast<int>(std::ceil(maxU * volumeXDenom)) + 1, 0, volume.resolution[0] - 1),
+            std::clamp(static_cast<int>(std::floor(minV * volumeZDenom)) - 1, 0, volume.resolution[2] - 1),
+            std::clamp(static_cast<int>(std::ceil(maxV * volumeZDenom)) + 1, 0, volume.resolution[2] - 1)};
+}
+
+void SyncTerrainVolumeMaterialsFromSurface(TerrainData* data, int minX, int maxX, int minZ, int maxZ) {
+    if (data == nullptr || !data->volumeEnabled) {
+        return;
+    }
+    TerrainVolumeData& volume = data->volume;
+    if (volume.layers.empty() || volume.layers.size() != data->layers.size()) {
+        volume.layers = TerrainVolumeLayersFromSurfaceLayers(*data);
+        volume.weights.clear();
+    }
+    NormalizeCaveVolumeData(&volume);
+    const int volumeLayerCount = CaveLayerCount(volume);
+    const int surfaceLayerCount = TerrainLayerCount(*data);
+    if (surfaceLayerCount <= 0 || volumeLayerCount <= 0 || data->weights.empty() ||
+        volume.weights.size() < static_cast<size_t>(CaveSampleCount(volume) * volumeLayerCount)) {
+        return;
+    }
+
+    const std::array<int, 4> bounds = TerrainSurfaceDirtyToVolumeXZ(*data, minX, maxX, minZ, maxZ);
+    for (int z = bounds[2]; z <= bounds[3]; ++z) {
+        const float v = volume.resolution[2] <= 1 ? 0.0f : static_cast<float>(z) / static_cast<float>(volume.resolution[2] - 1);
+        const int surfaceZ = std::clamp(static_cast<int>(std::round(v * static_cast<float>(data->resolution - 1))), 0,
+                                        data->resolution - 1);
+        for (int x = bounds[0]; x <= bounds[1]; ++x) {
+            const float u =
+                volume.resolution[0] <= 1 ? 0.0f : static_cast<float>(x) / static_cast<float>(volume.resolution[0] - 1);
+            const int surfaceX = std::clamp(static_cast<int>(std::round(u * static_cast<float>(data->resolution - 1))), 0,
+                                            data->resolution - 1);
+            const int surfaceSample = SampleIndex(*data, surfaceX, surfaceZ);
+            for (int y = 0; y < volume.resolution[1]; ++y) {
+                const int volumeSample = CaveSampleIndex(volume, x, y, z);
+                for (int layer = 0; layer < volumeLayerCount; ++layer) {
+                    const float weight = layer < surfaceLayerCount
+                                             ? data->weights[static_cast<size_t>(surfaceSample * surfaceLayerCount + layer)]
+                                             : 0.0f;
+                    volume.weights[static_cast<size_t>(volumeSample * volumeLayerCount + layer)] = weight;
+                }
+                NormalizeCaveLayerWeightsAt(&volume, volumeSample);
+            }
+        }
+    }
+    volume.dirtyMaterialChunks =
+        CaveChunksForDirtyRegion(volume, bounds[0], bounds[1], 0, volume.resolution[1] - 1, bounds[2], bounds[3]);
+    ++volume.materialRevision;
+}
+
+void SyncTerrainVolumeDensityFromSurface(TerrainData* data, int minX, int maxX, int minZ, int maxZ,
+                                         bool preserveOpposingVolumeEdits) {
+    if (data == nullptr || !data->volumeEnabled) {
+        return;
+    }
+    TerrainVolumeData& volume = data->volume;
+    NormalizeCaveVolumeData(&volume);
+    if (volume.densities.size() < static_cast<size_t>(CaveSampleCount(volume))) {
+        return;
+    }
+
+    const std::array<int, 4> bounds = TerrainSurfaceDirtyToVolumeXZ(*data, minX, maxX, minZ, maxZ);
+    for (int z = bounds[2]; z <= bounds[3]; ++z) {
+        for (int y = 0; y < volume.resolution[1]; ++y) {
+            for (int x = bounds[0]; x <= bounds[1]; ++x) {
+                const int sample = CaveSampleIndex(volume, x, y, z);
+                const float oldDensity = volume.densities[static_cast<size_t>(sample)];
+                const float baseDensity = TerrainBaseDensityAtLocal(*data, TerrainVolumeSampleLocalPosition(volume, x, y, z));
+                float density = baseDensity;
+                if (preserveOpposingVolumeEdits) {
+                    if (oldDensity < -0.05f && baseDensity > 0.05f) {
+                        density = oldDensity;
+                    } else if (oldDensity > 0.05f && baseDensity < -0.05f) {
+                        density = oldDensity;
+                    }
+                }
+                volume.densities[static_cast<size_t>(sample)] = std::clamp(density, -1.0f, 1.0f);
+            }
+        }
+    }
+    volume.dirtyChunks =
+        CaveChunksForDirtyRegion(volume, bounds[0], bounds[1], 0, volume.resolution[1] - 1, bounds[2], bounds[3]);
+    ++volume.editRevision;
+}
+
 void SeedTerrainVolumeFromHeightfield(TerrainData* data) {
-    if (data == nullptr || data->backend != TerrainBackend::Volumetric || !data->volumeEnabled) {
+    if (data == nullptr || !data->volumeEnabled) {
         return;
     }
     TerrainVolumeData& volume = data->volume;
@@ -457,45 +636,36 @@ void SeedTerrainVolumeFromHeightfield(TerrainData* data) {
         return;
     }
     volume.densities.assign(static_cast<size_t>(sampleCount), 1.0f);
-    const float stepX = volume.resolution[0] <= 1 ? 1.0f : volume.size[0] / static_cast<float>(volume.resolution[0] - 1);
-    const float stepY = volume.resolution[1] <= 1 ? 1.0f : volume.size[1] / static_cast<float>(volume.resolution[1] - 1);
-    const float stepZ = volume.resolution[2] <= 1 ? 1.0f : volume.size[2] / static_cast<float>(volume.resolution[2] - 1);
-    const float densityScale = std::max(0.05f, std::min({stepX, stepY, stepZ}));
     for (int z = 0; z < volume.resolution[2]; ++z) {
-        const float localZ = -volume.size[2] * 0.5f + static_cast<float>(z) * stepZ;
         for (int y = 0; y < volume.resolution[1]; ++y) {
-            const float volumeLocalY = -volume.size[1] * 0.5f + static_cast<float>(y) * stepY;
-            const float terrainLocalY = volumeLocalY;
             for (int x = 0; x < volume.resolution[0]; ++x) {
-                const float localX = -volume.size[0] * 0.5f + static_cast<float>(x) * stepX;
-                const TerrainSample surface = SampleTerrainLocal(*data, localX, localZ);
-                const float surfaceHeight = surface.valid ? surface.height : 0.0f;
-                const float density = (surfaceHeight - terrainLocalY) / densityScale;
                 volume.densities[static_cast<size_t>(CaveSampleIndex(volume, x, y, z))] =
-                    std::clamp(std::isfinite(density) ? density : 1.0f, -1.0f, 1.0f);
+                    TerrainBaseDensityAtLocal(*data, TerrainVolumeSampleLocalPosition(volume, x, y, z));
             }
         }
     }
     volume.dirtyChunks = CaveChunksForDirtyRegion(volume, 0, volume.resolution[0] - 1, 0, volume.resolution[1] - 1,
                                                   0, volume.resolution[2] - 1);
+    SyncTerrainVolumeMaterialsFromSurface(data, 0, data->resolution - 1, 0, data->resolution - 1);
 }
 
 void LoadTerrainVolumeFromProperties(const Component& component, TerrainData* data) {
     if (data == nullptr) {
         return;
     }
-    if (data->backend != TerrainBackend::Volumetric) {
-        data->volumeEnabled = false;
-        data->volume = {};
-        return;
-    }
     const bool hasSerializedVolume = !GetProperty(component, "volumeDensities").empty() ||
                                      !GetProperty(component, "volumeResolution").empty() ||
                                      !GetProperty(component, "volumeLayers").empty();
-    data->volumeEnabled = ParseBool(GetProperty(component, "volumeEnabled", hasSerializedVolume ? "true" : "false"),
-                                    hasSerializedVolume);
-    if (!data->volumeEnabled && !hasSerializedVolume) {
+    data->backend = TerrainBackend::Volumetric;
+    data->volumeEnabled = true;
+    if (!hasSerializedVolume) {
         data->volume = {};
+        data->volume.resolution = {25, 17, 25};
+        data->volume.chunkSize = 8;
+        data->volume.size = DefaultTerrainVolumeSize(*data);
+        data->volume.collisionEnabled = data->collisionEnabled;
+        data->volume.collisionUpdateMode = "Deferred";
+        data->volume.layers = TerrainVolumeLayersFromSurfaceLayers(*data);
         return;
     }
 
@@ -524,19 +694,6 @@ void WriteTerrainVolumeProperties(const TerrainData& data, Component* component)
         return;
     }
     SetProperty(component, "volumeEnabled", TerrainUsesVolumetric(data) ? "true" : "false");
-    if (!TerrainUsesVolumetric(data)) {
-        const char* volumeProperties[] = {"volumeVersion",       "volumeResolution", "volumeSize",
-                                          "volumeChunkSize",     "volumeCollisionEnabled",
-                                          "volumeCollisionUpdateMode",
-                                          "volumeEditRevision", "volumeMaterialRevision",
-                                          "volumeDensities",    "volumeLayers",
-                                          "volumeWeights",      "volumeDirtyChunks",
-                                          "volumeDirtyMaterialChunks"};
-        for (const char* property : volumeProperties) {
-            RemoveProperty(component, property);
-        }
-        return;
-    }
 
     Component cave{"CaveVolume", {}};
     SaveCaveVolumeDataToComponent(data.volume, &cave);
@@ -703,13 +860,7 @@ void NormalizeTerrainData(TerrainData* data) {
     }
     NormalizeTerrainLayerWeights(data);
 
-    if (data->backend != TerrainBackend::Volumetric) {
-        data->backend = TerrainBackend::Heightfield;
-        data->volumeEnabled = false;
-        data->volume = {};
-    } else {
-        data->volumeEnabled = true;
-    }
+    EnsureTerrainVolumeStorage(data);
 
     std::vector<int> normalizedDirty;
     const int chunkTotal = TerrainChunkCountX(*data) * TerrainChunkCountZ(*data);
@@ -727,18 +878,118 @@ void NormalizeTerrainData(TerrainData* data) {
     }
     data->dirtyMaterialChunks = std::move(normalizedMaterialDirty);
 
-    if (data->backend == TerrainBackend::Volumetric && data->volumeEnabled) {
-        const std::array<float, 3> defaultSize = DefaultTerrainVolumeSize(*data);
-        const bool needsHeightfieldSeed =
-            data->volume.densities.size() != static_cast<size_t>(CaveSampleCount(data->volume));
-        data->volume.size[0] = defaultSize[0];
-        data->volume.size[1] = std::max(defaultSize[1], std::isfinite(data->volume.size[1]) ? data->volume.size[1] : defaultSize[1]);
-        data->volume.size[2] = defaultSize[2];
-        NormalizeCaveVolumeData(&data->volume);
-        if (needsHeightfieldSeed) {
-            SeedTerrainVolumeFromHeightfield(data);
+    const bool needsHeightfieldSeed =
+        data->volume.densities.size() != static_cast<size_t>(CaveSampleCount(data->volume));
+    NormalizeCaveVolumeData(&data->volume);
+    if (needsHeightfieldSeed) {
+        SeedTerrainVolumeFromHeightfield(data);
+    }
+}
+
+void ResizeTerrainHeightfield(TerrainData* data, std::array<float, 3> size) {
+    if (data == nullptr) {
+        return;
+    }
+    NormalizeTerrainData(data);
+    data->size[0] = std::max(0.1f, std::isfinite(size[0]) ? size[0] : data->size[0]);
+    data->size[1] = std::max(0.0f, std::isfinite(size[1]) ? size[1] : data->size[1]);
+    data->size[2] = std::max(0.1f, std::isfinite(size[2]) ? size[2] : data->size[2]);
+    for (float& height : data->heights) {
+        height = ClampHeight(*data, height);
+    }
+    data->dirtyChunks = TerrainChunksForDirtyRegion(*data, 0, data->resolution - 1, 0, data->resolution - 1);
+    EnsureTerrainVolumeStorage(data);
+    NormalizeCaveVolumeData(&data->volume);
+    SyncTerrainVolumeDensityFromSurface(data, 0, data->resolution - 1, 0, data->resolution - 1, true);
+    SyncTerrainVolumeMaterialsFromSurface(data, 0, data->resolution - 1, 0, data->resolution - 1);
+    ++data->editRevision;
+}
+
+bool ResampleTerrainHeightfield(TerrainData* data, int resolution) {
+    if (data == nullptr) {
+        return false;
+    }
+    NormalizeTerrainData(data);
+    resolution = std::clamp(resolution, kMinTerrainResolution, kMaxTerrainResolution);
+    if (resolution == data->resolution) {
+        return false;
+    }
+
+    const TerrainData old = *data;
+    const int oldResolution = old.resolution;
+    const int layerCount = TerrainLayerCount(old);
+    auto oldSampleIndex = [&](int x, int z) {
+        return z * oldResolution + x;
+    };
+    auto sampleHeight = [&](float u, float v) {
+        const float fx = ClampUv(u) * static_cast<float>(oldResolution - 1);
+        const float fz = ClampUv(v) * static_cast<float>(oldResolution - 1);
+        const int x0 = std::clamp(static_cast<int>(std::floor(fx)), 0, oldResolution - 1);
+        const int z0 = std::clamp(static_cast<int>(std::floor(fz)), 0, oldResolution - 1);
+        const int x1 = std::clamp(x0 + 1, 0, oldResolution - 1);
+        const int z1 = std::clamp(z0 + 1, 0, oldResolution - 1);
+        const float tx = fx - static_cast<float>(x0);
+        const float tz = fz - static_cast<float>(z0);
+        auto heightAt = [&](int x, int z) {
+            const size_t index = static_cast<size_t>(oldSampleIndex(x, z));
+            return index < old.heights.size() ? old.heights[index] : 0.0f;
+        };
+        return Lerp(Lerp(heightAt(x0, z0), heightAt(x1, z0), tx), Lerp(heightAt(x0, z1), heightAt(x1, z1), tx), tz);
+    };
+    auto sampleWeight = [&](int layer, float u, float v) {
+        if (layer < 0 || layer >= layerCount || old.weights.empty()) {
+            return layer == 0 ? 1.0f : 0.0f;
+        }
+        const float fx = ClampUv(u) * static_cast<float>(oldResolution - 1);
+        const float fz = ClampUv(v) * static_cast<float>(oldResolution - 1);
+        const int x0 = std::clamp(static_cast<int>(std::floor(fx)), 0, oldResolution - 1);
+        const int z0 = std::clamp(static_cast<int>(std::floor(fz)), 0, oldResolution - 1);
+        const int x1 = std::clamp(x0 + 1, 0, oldResolution - 1);
+        const int z1 = std::clamp(z0 + 1, 0, oldResolution - 1);
+        const float tx = fx - static_cast<float>(x0);
+        const float tz = fz - static_cast<float>(z0);
+        auto weightAt = [&](int x, int z) {
+            const size_t index = static_cast<size_t>(oldSampleIndex(x, z) * layerCount + layer);
+            return index < old.weights.size() ? old.weights[index] : (layer == 0 ? 1.0f : 0.0f);
+        };
+        return Lerp(Lerp(weightAt(x0, z0), weightAt(x1, z0), tx), Lerp(weightAt(x0, z1), weightAt(x1, z1), tx), tz);
+    };
+    auto sampleHole = [&](float u, float v) {
+        const int x = std::clamp(static_cast<int>(std::round(ClampUv(u) * static_cast<float>(oldResolution - 1))), 0,
+                                 oldResolution - 1);
+        const int z = std::clamp(static_cast<int>(std::round(ClampUv(v) * static_cast<float>(oldResolution - 1))), 0,
+                                 oldResolution - 1);
+        const size_t index = static_cast<size_t>(oldSampleIndex(x, z));
+        return index < old.holes.size() ? old.holes[index] : 0u;
+    };
+
+    data->resolution = resolution;
+    data->heights.assign(static_cast<size_t>(resolution * resolution), 0.0f);
+    data->holes.assign(static_cast<size_t>(resolution * resolution), 0u);
+    data->weights.assign(static_cast<size_t>(resolution * resolution * std::max(1, layerCount)), 0.0f);
+    for (int z = 0; z < resolution; ++z) {
+        const float v = resolution <= 1 ? 0.0f : static_cast<float>(z) / static_cast<float>(resolution - 1);
+        for (int x = 0; x < resolution; ++x) {
+            const float u = resolution <= 1 ? 0.0f : static_cast<float>(x) / static_cast<float>(resolution - 1);
+            const int sample = z * resolution + x;
+            data->heights[static_cast<size_t>(sample)] = ClampHeight(*data, sampleHeight(u, v));
+            data->holes[static_cast<size_t>(sample)] = sampleHole(u, v);
+            for (int layer = 0; layer < std::max(1, layerCount); ++layer) {
+                data->weights[static_cast<size_t>(sample * std::max(1, layerCount) + layer)] = sampleWeight(layer, u, v);
+            }
+            NormalizeTerrainLayerWeightsAt(data, sample);
         }
     }
+    data->chunkSize = std::clamp(data->chunkSize, 1, std::max(1, data->resolution - 1));
+    data->dirtyChunks = TerrainChunksForDirtyRegion(*data, 0, data->resolution - 1, 0, data->resolution - 1);
+    data->dirtyMaterialChunks = data->dirtyChunks;
+    EnsureTerrainVolumeStorage(data);
+    NormalizeCaveVolumeData(&data->volume);
+    SyncTerrainVolumeDensityFromSurface(data, 0, data->resolution - 1, 0, data->resolution - 1, true);
+    SyncTerrainVolumeMaterialsFromSurface(data, 0, data->resolution - 1, 0, data->resolution - 1);
+    ++data->editRevision;
+    ++data->materialRevision;
+    return true;
 }
 
 int TerrainSampleCount(const TerrainData& data) {
@@ -982,7 +1233,7 @@ bool TerrainRaycastWorld(const TerrainData& data, const Entity& entity, std::arr
                 outHit->normal = hitSample.normal;
                 outHit->entityId = entity.id;
                 outHit->entityName = entity.name;
-                outHit->surfaceType = "Heightfield";
+                outHit->surfaceType = "Surface Control";
             }
             return true;
         }
@@ -1035,14 +1286,15 @@ TerrainBackend TerrainBackendFromString(std::string value) {
                 }),
                 value.end());
     if (value == "volumetric" || value == "volume" || value == "terrainvolume" ||
-        value == "unifiedvolumetric") {
+        value == "unifiedvolumetric" || value == "unified" || value == "unifiedterrain") {
         return TerrainBackend::Volumetric;
     }
-    return TerrainBackend::Heightfield;
+    return TerrainBackend::Volumetric;
 }
 
 const char* TerrainBackendLabel(TerrainBackend backend) {
-    return backend == TerrainBackend::Volumetric ? "Volumetric" : "Heightfield";
+    (void)backend;
+    return "Unified Terrain";
 }
 
 bool TerrainHasVolume(const TerrainData& data) {
@@ -1055,26 +1307,16 @@ bool TerrainUsesVolumetric(const TerrainData& data) {
 }
 
 bool TerrainUsesHeightfield(const TerrainData& data) {
-    return data.backend == TerrainBackend::Heightfield || !TerrainUsesVolumetric(data);
+    return data.resolution >= 2 && data.heights.size() >= static_cast<size_t>(TerrainSampleCount(data));
 }
 
 void EnsureTerrainVolume(TerrainData* data) {
     if (data == nullptr) {
         return;
     }
-    data->backend = TerrainBackend::Volumetric;
-    if (!data->volumeEnabled) {
-        data->volumeEnabled = true;
-        data->volume = {};
-        data->volume.resolution = {25, 17, 25};
-        data->volume.chunkSize = 8;
-        data->volume.size = DefaultTerrainVolumeSize(*data);
-    }
+    EnsureTerrainVolumeStorage(data);
     const bool needsHeightfieldSeed =
         data->volume.densities.size() != static_cast<size_t>(CaveSampleCount(data->volume));
-    data->volume.size[0] = std::max(0.1f, data->size[0]);
-    data->volume.size[1] = std::max(DefaultTerrainVolumeSize(*data)[1], data->volume.size[1]);
-    data->volume.size[2] = std::max(0.1f, data->size[2]);
     NormalizeCaveVolumeData(&data->volume);
     if (needsHeightfieldSeed) {
         SeedTerrainVolumeFromHeightfield(data);
@@ -1134,7 +1376,7 @@ TerrainVolumeBrushResult ApplyTerrainVolumeBrush(TerrainData* data, std::array<f
     }
     NormalizeTerrainData(data);
     if (!TerrainUsesVolumetric(*data)) {
-        return result;
+        EnsureTerrainVolume(data);
     }
     return ApplyCaveBrush(&data->volume, centerLocal, settings);
 }
@@ -1292,9 +1534,11 @@ TerrainBrushResult ApplyTerrainBrush(TerrainData* data, std::array<float, 2> cen
         result.dirty.chunks = TerrainChunksForDirtyRegion(*data, minX, maxX, minZ, maxZ);
         if (result.materialOnly) {
             data->dirtyMaterialChunks = result.dirty.chunks;
+            SyncTerrainVolumeMaterialsFromSurface(data, minX, maxX, minZ, maxZ);
             ++data->materialRevision;
         } else {
             data->dirtyChunks = result.dirty.chunks;
+            SyncTerrainVolumeDensityFromSurface(data, minX, maxX, minZ, maxZ, true);
             ++data->editRevision;
         }
     }
@@ -1569,8 +1813,8 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     data.layers.front().normalTexture = "Assets/TempTerrainTextures/Test_Ground_Normal.png";
     data.layers.front().maskTexture = "Assets/TempTerrainTextures/Test_Ground_Mask.png";
     NormalizeTerrainData(&data);
-    if (!TerrainUsesHeightfield(data) || TerrainUsesVolumetric(data) || TerrainHasVolume(data)) {
-        return fail("Terrain selftest failed: default terrain did not stay on the heightfield backend.");
+    if (!TerrainUsesHeightfield(data) || !TerrainUsesVolumetric(data) || !TerrainHasVolume(data)) {
+        return fail("Terrain selftest failed: default terrain did not initialize as unified terrain.");
     }
 
     TerrainVolumeBrushSettings accidentalVolumeBrush;
@@ -1579,8 +1823,9 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     accidentalVolumeBrush.strength = 1.0f;
     const TerrainVolumeBrushResult accidentalVolumeEdit =
         ApplyTerrainVolumeBrush(&data, {0.0f, -1.0f, 0.0f}, accidentalVolumeBrush);
-    if (accidentalVolumeEdit.changed || !TerrainUsesHeightfield(data) || TerrainHasVolume(data)) {
-        return fail("Terrain selftest failed: volume brush auto-converted a heightfield terrain.");
+    if (!accidentalVolumeEdit.changed || !TerrainUsesHeightfield(data) || !TerrainUsesVolumetric(data) ||
+        !TerrainHasVolume(data)) {
+        return fail("Terrain selftest failed: volume brush did not edit the default unified terrain.");
     }
 
     TerrainBrushSettings raise;
@@ -1593,6 +1838,9 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     }
     if (raised.dirty.chunks.size() >= static_cast<size_t>(TerrainChunkCountX(data) * TerrainChunkCountZ(data))) {
         return fail("Terrain selftest failed: focused brush dirtied every chunk.");
+    }
+    if (SampleCaveLocal(data.volume, {0.0f, -1.0f, 0.0f}).density >= 0.0f) {
+        return fail("Terrain selftest failed: surface sculpt erased an existing volume dig.");
     }
 
     const TerrainSample center = SampleTerrainLocal(data, 0.0f, 0.0f);
@@ -1637,6 +1885,65 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
         return fail("Terrain selftest failed: layer weights were not normalized.");
     }
 
+    TerrainData resizedHeightfield = data;
+    const float heightBeforeResize = SampleTerrainLocal(resizedHeightfield, 0.0f, 0.0f).height;
+    ResizeTerrainHeightfield(&resizedHeightfield, {24.0f, 8.0f, 20.0f});
+    if (!TerrainUsesHeightfield(resizedHeightfield) || !TerrainUsesVolumetric(resizedHeightfield) ||
+        !TerrainHasVolume(resizedHeightfield) || std::fabs(resizedHeightfield.size[0] - 24.0f) > 0.001f ||
+        std::fabs(resizedHeightfield.size[1] - 8.0f) > 0.001f ||
+        std::fabs(resizedHeightfield.size[2] - 20.0f) > 0.001f || resizedHeightfield.dirtyChunks.empty()) {
+        return fail("Terrain selftest failed: unified terrain resize lost surface/volume data or failed to dirty chunks.");
+    }
+    const TerrainSample resizedCenter = SampleTerrainLocal(resizedHeightfield, 0.0f, 0.0f);
+    if (!resizedCenter.valid || std::fabs(resizedCenter.height - heightBeforeResize) > 0.05f ||
+        TerrainLayerWeightAtUv(resizedHeightfield, 1, {0.5f, 0.5f}) <= 0.1f) {
+        return fail("Terrain selftest failed: heightfield resize did not preserve sculpted height and paint at center.");
+    }
+    const TerrainMesh resizedMesh = BuildTerrainMesh(resizedHeightfield);
+    if (resizedMesh.chunks.empty() || std::fabs(resizedMesh.boundsMin[0] + 12.0f) > 0.01f ||
+        std::fabs(resizedMesh.boundsMax[0] - 12.0f) > 0.01f ||
+        std::fabs(resizedMesh.boundsMin[2] + 10.0f) > 0.01f ||
+        std::fabs(resizedMesh.boundsMax[2] - 10.0f) > 0.01f) {
+        return fail("Terrain selftest failed: resized heightfield mesh bounds did not match terrain size.");
+    }
+    Entity resizedEntity;
+    resizedEntity.id = 40;
+    resizedEntity.name = "Resized Heightfield";
+    resizedEntity.position = {0.0f, 0.0f, 0.0f};
+    resizedEntity.scale = {1.0f, 1.0f, 1.0f};
+    TerrainRayHit resizedHit;
+    if (!TerrainRaycastWorld(resizedHeightfield, resizedEntity, {0.0f, 10.0f, 0.0f}, {0.0f, -1.0f, 0.0f},
+                             20.0f, &resizedHit) ||
+        !resizedHit.hit || resizedHit.surfaceType != "Surface Control") {
+        return fail("Terrain selftest failed: resized unified terrain raycast did not hit the surface control field.");
+    }
+    if (!ResampleTerrainHeightfield(&resizedHeightfield, 33) || resizedHeightfield.resolution != 33 ||
+        resizedHeightfield.heights.size() != static_cast<size_t>(TerrainSampleCount(resizedHeightfield)) ||
+        resizedHeightfield.dirtyChunks.empty() || resizedHeightfield.dirtyMaterialChunks.empty()) {
+        return fail("Terrain selftest failed: heightfield resample did not rebuild sample/material storage.");
+    }
+    const TerrainSample resampledCenter = SampleTerrainLocal(resizedHeightfield, 0.0f, 0.0f);
+    float resampledWeightSum = 0.0f;
+    for (float weight : resampledCenter.layerWeights) {
+        resampledWeightSum += weight;
+    }
+    if (!resampledCenter.valid || std::fabs(resampledCenter.height - heightBeforeResize) > 0.10f ||
+        TerrainLayerWeightAtUv(resizedHeightfield, 1, {0.5f, 0.5f}) <= 0.1f ||
+        std::fabs(resampledWeightSum - 1.0f) > 0.01f || !TerrainUsesVolumetric(resizedHeightfield) ||
+        !TerrainHasVolume(resizedHeightfield)) {
+        return fail("Terrain selftest failed: unified terrain resample did not preserve height, paint weights, or volume.");
+    }
+    Component resizedComponent;
+    SaveTerrainDataToComponent(resizedHeightfield, &resizedComponent);
+    TerrainData resizedLoaded;
+    if (!LoadTerrainDataFromComponent(resizedComponent, &resizedLoaded) ||
+        !TerrainUsesHeightfield(resizedLoaded) || !TerrainUsesVolumetric(resizedLoaded) ||
+        !TerrainHasVolume(resizedLoaded) ||
+        resizedLoaded.resolution != resizedHeightfield.resolution ||
+        std::fabs(SampleTerrainLocal(resizedLoaded, 0.0f, 0.0f).height - resampledCenter.height) > 0.10f) {
+        return fail("Terrain selftest failed: resized/resampled unified terrain did not survive serialization.");
+    }
+
     TerrainData isolatedHeightfieldPaint;
     isolatedHeightfieldPaint.resolution = 17;
     isolatedHeightfieldPaint.size = {16.0f, 4.0f, 16.0f};
@@ -1644,8 +1951,11 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     isolatedHeightfieldPaint.layers = DefaultTerrainLayers();
     NormalizeTerrainData(&isolatedHeightfieldPaint);
     const std::vector<float> heightfieldPaintHeightsBefore = isolatedHeightfieldPaint.heights;
+    const std::vector<float> paintVolumeDensityBefore = isolatedHeightfieldPaint.volume.densities;
     const int heightfieldEditRevisionBefore = isolatedHeightfieldPaint.editRevision;
     const int heightfieldMaterialRevisionBefore = isolatedHeightfieldPaint.materialRevision;
+    const int paintVolumeEditRevisionBefore = isolatedHeightfieldPaint.volume.editRevision;
+    const int paintVolumeMaterialRevisionBefore = isolatedHeightfieldPaint.volume.materialRevision;
     TerrainBrushSettings isolatedPaint;
     isolatedPaint.mode = TerrainBrushMode::Paint;
     isolatedPaint.radius = 1.7f;
@@ -1655,10 +1965,13 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
         ApplyTerrainBrush(&isolatedHeightfieldPaint, {0.5f, 0.5f}, isolatedPaint);
     if (!isolatedPaintResult.changed || !isolatedPaintResult.materialOnly ||
         isolatedHeightfieldPaint.heights != heightfieldPaintHeightsBefore ||
+        isolatedHeightfieldPaint.volume.densities != paintVolumeDensityBefore ||
         isolatedHeightfieldPaint.editRevision != heightfieldEditRevisionBefore ||
         isolatedHeightfieldPaint.materialRevision != heightfieldMaterialRevisionBefore + 1 ||
+        isolatedHeightfieldPaint.volume.editRevision != paintVolumeEditRevisionBefore ||
+        isolatedHeightfieldPaint.volume.materialRevision != paintVolumeMaterialRevisionBefore + 1 ||
         !isolatedHeightfieldPaint.dirtyChunks.empty() || isolatedHeightfieldPaint.dirtyMaterialChunks.empty()) {
-        return fail("Terrain selftest failed: heightfield material paint dirtied geometry or changed heights.");
+        return fail("Terrain selftest failed: unified paint dirtied geometry or changed height/density data.");
     }
     TerrainMesh isolatedPaintMesh = BuildTerrainMesh(isolatedHeightfieldPaint);
     if (!RefreshTerrainMeshChunkMaterials(isolatedHeightfieldPaint, isolatedHeightfieldPaint.dirtyMaterialChunks,
@@ -1708,8 +2021,8 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     if (!TerrainIsHoleAtUv(loaded, {0.5f, 0.5f})) {
         return fail("Terrain selftest failed: serialization roundtrip lost terrain hole mask.");
     }
-    if (!TerrainUsesHeightfield(loaded) || TerrainHasVolume(loaded)) {
-        return fail("Terrain selftest failed: heightfield serialization roundtrip gained volume data.");
+    if (!TerrainUsesHeightfield(loaded) || !TerrainUsesVolumetric(loaded) || !TerrainHasVolume(loaded)) {
+        return fail("Terrain selftest failed: terrain serialization roundtrip lost unified volume data.");
     }
     Component legacyVolumeComponent = component;
     RemoveProperty(&legacyVolumeComponent, "backend");
@@ -1718,8 +2031,9 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     SetProperty(&legacyVolumeComponent, "volumeDensities", "[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]");
     TerrainData legacyVolumeLoaded;
     if (!LoadTerrainDataFromComponent(legacyVolumeComponent, &legacyVolumeLoaded) ||
-        !TerrainUsesHeightfield(legacyVolumeLoaded) || TerrainHasVolume(legacyVolumeLoaded)) {
-        return fail("Terrain selftest failed: missing terrain backend did not default to Heightfield.");
+        !TerrainUsesHeightfield(legacyVolumeLoaded) || !TerrainUsesVolumetric(legacyVolumeLoaded) ||
+        !TerrainHasVolume(legacyVolumeLoaded)) {
+        return fail("Terrain selftest failed: missing terrain backend did not migrate to Unified Terrain.");
     }
 
     Entity holedTerrainEntity;
@@ -1782,7 +2096,7 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
 
     Entity volumeTerrainEntity;
     volumeTerrainEntity.id = 88;
-    volumeTerrainEntity.name = "Volumetric Test Terrain";
+    volumeTerrainEntity.name = "Unified Test Terrain";
     volumeTerrainEntity.position = {0.0f, 0.0f, 0.0f};
     volumeTerrainEntity.scale = {1.0f, 1.0f, 1.0f};
 
@@ -1898,6 +2212,11 @@ bool RunTerrainSelfTests(std::vector<std::string>* diagnostics) {
     CaveMesh volumeMesh = BuildCaveMesh(volumeTerrain.volume);
     if (volumeMesh.chunks.empty() || volumeMesh.boundsMax[1] <= volumeMesh.boundsMin[1]) {
         return fail("Terrain selftest failed: terrain-owned volume mesh build produced invalid bounds.");
+    }
+    const TerrainVolumeMeshValidationResult volumeValidation = ValidateCaveMesh(volumeTerrain.volume, volumeMesh);
+    if (!volumeValidation.valid || volumeValidation.sideNormalCount <= 0 || volumeValidation.downwardNormalCount <= 0) {
+        return fail("Terrain selftest failed: terrain-owned volume mesh validation failed.\n" +
+                    FormatCaveMeshValidation(volumeValidation));
     }
     if (!RebuildCaveMeshChunks(volumeTerrain.volume, volumeTunnel.dirty.chunks, &volumeMesh)) {
         return fail("Terrain selftest failed: terrain-owned volume chunk rebuild failed.");

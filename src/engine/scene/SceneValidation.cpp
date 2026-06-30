@@ -371,8 +371,8 @@ bool ValidateEnvironmentLightingComponent(const Entity& entity, const Component&
     };
 
     const std::string mode = ToLowerCopy(ComponentStringProperty(component, "skyboxMode", "Gradient"));
-    if (mode != "gradient" && mode != "solid" && mode != "none") {
-        fail("skyboxMode must be Gradient, Solid, or None.");
+    if (mode != "gradient" && mode != "solid" && mode != "custom" && mode != "none") {
+        fail("skyboxMode must be Gradient, Solid, Custom, or None.");
     }
 
     float exposure = 1.0f;
